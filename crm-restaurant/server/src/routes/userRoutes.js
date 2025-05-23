@@ -7,14 +7,15 @@ const { authenticate, authorize } = require('../middleware/auth');
 router.post('/register', userController.register);
 router.post('/login', userController.login);
 
-// Routes protégées
+// Routes protégées (utilisateur connecté)
+router.get('/profile', authenticate, userController.getUserById);
+router.get('/me', authenticate, userController.getCurrentUser);
+router.put('/profile/:id', authenticate, userController.updateUserProfile);
+
+// Routes pour managers
+router.get('/', authenticate, authorize(['manager']), userController.getAllUsers);
 router.get('/all', authenticate, authorize(['manager']), userController.getAllUsers);
-router.get('/:id', authenticate, userController.getUserById);
-
-// Routes de mise à jour (managers seulement pour updateUser)
+router.get('/:id', authenticate, authorize(['manager']), userController.getUserById);
 router.put('/:id', authenticate, authorize(['manager']), userController.updateUser);
-
-// Route de mise à jour du profil (utilisateur peut modifier le sien)
-router.put('/:id/profile', authenticate, userController.updateProfile);
 
 module.exports = router; 

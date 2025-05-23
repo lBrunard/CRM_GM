@@ -39,7 +39,7 @@ const ShiftCalendar = () => {
 
   // États pour la vue mobile-friendly
   const [viewMode, setViewMode] = useState('calendar'); // 'list' ou 'calendar'
-  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
 
   // Vérifier que seuls les responsables et managers ont accès à cette page
@@ -108,35 +108,27 @@ const ShiftCalendar = () => {
             // Déterminer le statut global de validation du shift
             const now = new Date();
             const shiftDate = new Date(shift.date);
-            const [startHour, startMinute] = shift.start_time.split(':').map(Number);
             const [endHour, endMinute] = shift.end_time.split(':').map(Number);
-            
-            const shiftStartTime = new Date(shiftDate);
-            shiftStartTime.setHours(startHour, startMinute, 0, 0);
-            
             const shiftEndTime = new Date(shiftDate);
             shiftEndTime.setHours(endHour, endMinute, 0, 0);
             
-            // Gérer les shifts qui se terminent le lendemain
-            if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
-              shiftEndTime.setDate(shiftEndTime.getDate() + 1);
-            }
+            // Le shift est-il passé?
+            const isPastShift = now > shiftEndTime;
             
-            // Déterminer le statut selon l'heure actuelle
+            // Statut de validation:
+            // Si tous les user_shifts sont validés -> "validated"
+            // Si pas tous validés mais le shift est passé -> "pending"
+            // Si le shift n'est pas encore terminé -> "upcoming"
             let validationStatus = "upcoming";
             
-            if (now >= shiftStartTime && now <= shiftEndTime) {
-              // Le shift est en cours
-              validationStatus = "in_progress";
-            } else if (now > shiftEndTime) {
-              // Le shift est terminé
+            if (isPastShift) {
               const allValidated = userShifts.every(us => us.validated);
               validationStatus = allValidated ? "validated" : "pending";
             }
             
             // Fusionner les données du personnel avec leurs heures de pointage
             const personnelWithHours = {
-              cuisine: (personnelResponse.data?.cuisine || []).map(person => {
+              cuisine: personnelResponse.data.cuisine.map(person => {
                 const userShift = userShifts.find(us => us.user_id === person.user_id);
                 return {
                   ...person,
@@ -145,7 +137,7 @@ const ShiftCalendar = () => {
                   validated: userShift?.validated || false
                 };
               }),
-              salle: (personnelResponse.data?.salle || []).map(person => {
+              salle: personnelResponse.data.salle.map(person => {
                 const userShift = userShifts.find(us => us.user_id === person.user_id);
                 return {
                   ...person,
@@ -154,7 +146,7 @@ const ShiftCalendar = () => {
                   validated: userShift?.validated || false
                 };
               }),
-              bar: (personnelResponse.data?.bar || []).map(person => {
+              bar: personnelResponse.data.bar.map(person => {
                 const userShift = userShifts.find(us => us.user_id === person.user_id);
                 return {
                   ...person,
@@ -271,8 +263,7 @@ const ShiftCalendar = () => {
         Salle: salleStaff,
         Bar: barStaff,
         Status: shift.validationStatus === 'validated' ? 'Validé' : 
-                shift.validationStatus === 'pending' ? 'En attente' : 
-                shift.validationStatus === 'in_progress' ? 'En cours' : 'À venir'
+                shift.validationStatus === 'pending' ? 'En attente' : 'À venir'
       };
     });
   };
@@ -344,9 +335,6 @@ const ShiftCalendar = () => {
       case 'upcoming':
         backgroundColor = '#0d6efd'; // Bleu pour à venir
         break;
-      case 'in_progress':
-        backgroundColor = '#ffd700'; // Jaune pour en cours
-        break;
       default:
         backgroundColor = '#6c757d'; // Gris par défaut
     }
@@ -387,17 +375,24 @@ const ShiftCalendar = () => {
   };
 
   // Utilitaires pour la nouvelle interface
-  const getDaysInWeek = (date) => {
-    const startOfWeek = new Date(date);
-    const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day;
-    startOfWeek.setDate(diff);
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
     
     const days = [];
-    for (let i = 0; i < 7; i++) {
-      const currentDay = new Date(startOfWeek);
-      currentDay.setDate(startOfWeek.getDate() + i);
-      days.push(currentDay);
+    
+    // Ajouter les jours vides du début du mois
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    // Ajouter tous les jours du mois
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
     }
     
     return days;
@@ -409,10 +404,10 @@ const ShiftCalendar = () => {
     return shifts.filter(shift => shift.date === dateString);
   };
 
-  const navigateWeek = (direction) => {
-    const newWeek = new Date(currentWeek);
-    newWeek.setDate(newWeek.getDate() + (direction * 7));
-    setCurrentWeek(newWeek);
+  const navigateMonth = (direction) => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(newMonth.getMonth() + direction);
+    setCurrentMonth(newMonth);
   };
 
   const formatDateWithDay = (dateString) => {
@@ -449,12 +444,10 @@ const ShiftCalendar = () => {
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     shift.validationStatus === 'validated' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
                     shift.validationStatus === 'pending' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                    shift.validationStatus === 'in_progress' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                     'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                   }`}>
                     {shift.validationStatus === 'validated' ? 'Validé' : 
                      shift.validationStatus === 'pending' ? 'En attente' : 
-                     shift.validationStatus === 'in_progress' ? 'En cours' :
                      'À venir'}
                   </span>
                 </div>
@@ -464,7 +457,7 @@ const ShiftCalendar = () => {
                 {/* Personnel de cuisine */}
                 <div>
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Personnel de cuisine</h4>
-                  {(!shift.personnel?.cuisine || shift.personnel.cuisine.length === 0) ? (
+                  {shift.personnel.cuisine.length === 0 ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400">Aucun personnel assigné</p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -503,7 +496,7 @@ const ShiftCalendar = () => {
                 {/* Personnel de salle */}
                 <div>
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Personnel de salle</h4>
-                  {(!shift.personnel?.salle || shift.personnel.salle.length === 0) ? (
+                  {shift.personnel.salle.length === 0 ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400">Aucun personnel assigné</p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -542,7 +535,7 @@ const ShiftCalendar = () => {
                 {/* Personnel de bar */}
                 <div>
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">Personnel de bar</h4>
-                  {(!shift.personnel?.bar || shift.personnel.bar.length === 0) ? (
+                  {shift.personnel.bar.length === 0 ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400">Aucun personnel assigné</p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -635,9 +628,9 @@ const ShiftCalendar = () => {
     setEditingShift({
       ...shift,
       personnel: {
-        cuisine: [...(shift.personnel?.cuisine || [])],
-        salle: [...(shift.personnel?.salle || [])],
-        bar: [...(shift.personnel?.bar || [])]
+        cuisine: [...shift.personnel.cuisine],
+        salle: [...shift.personnel.salle],
+        bar: [...shift.personnel.bar]
       }
     });
     setShowEditModal(true);
@@ -650,7 +643,7 @@ const ShiftCalendar = () => {
 
     // Vérifier que l'utilisateur n'est pas déjà assigné
     const isAlreadyAssigned = ['cuisine', 'salle', 'bar'].some(pos => 
-      (editingShift.personnel?.[pos] || []).some(p => p.user_id === user.id)
+      editingShift.personnel[pos].some(p => p.user_id === user.id)
     );
 
     if (isAlreadyAssigned) {
@@ -662,7 +655,7 @@ const ShiftCalendar = () => {
       ...editingShift,
       personnel: {
         ...editingShift.personnel,
-        [position]: [...(editingShift.personnel?.[position] || []), { user_id: user.id, username: user.username }]
+        [position]: [...editingShift.personnel[position], { user_id: user.id, username: user.username }]
       }
     });
   };
@@ -673,7 +666,7 @@ const ShiftCalendar = () => {
       ...editingShift,
       personnel: {
         ...editingShift.personnel,
-        [position]: (editingShift.personnel?.[position] || []).filter(p => p.user_id !== userId)
+        [position]: editingShift.personnel[position].filter(p => p.user_id !== userId)
       }
     });
   };
@@ -783,24 +776,19 @@ const ShiftCalendar = () => {
               <div className="flex items-center justify-between">
                 <button
                   className="btn-hero-outline btn-hero-sm"
-                  onClick={() => navigateWeek(-1)}
+                  onClick={() => navigateMonth(-1)}
                 >
                   <ChevronLeftIcon className="h-4 w-4 mr-1" />
                   Précédent
                 </button>
                 
                 <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {(() => {
-                    const weekDays = getDaysInWeek(currentWeek);
-                    const startDate = weekDays[0];
-                    const endDate = weekDays[6];
-                    return `${format(startDate, 'd MMM', { locale: fr })} - ${format(endDate, 'd MMM yyyy', { locale: fr })}`;
-                  })()}
+                  {format(currentMonth, 'MMMM yyyy', { locale: fr })}
                 </h4>
                 
                 <button
                   className="btn-hero-outline btn-hero-sm"
-                  onClick={() => navigateWeek(1)}
+                  onClick={() => navigateMonth(1)}
                 >
                   Suivant
                   <ChevronRightIcon className="h-4 w-4 ml-1" />
@@ -809,26 +797,23 @@ const ShiftCalendar = () => {
 
               {/* Liste des shifts du mois */}
               {(() => {
-                const weekDays = getDaysInWeek(currentWeek);
-                const startOfWeek = weekDays[0];
-                const endOfWeek = weekDays[6];
-                
-                const weekShifts = shifts.filter(shift => {
+                const monthShifts = shifts.filter(shift => {
                   const shiftDate = new Date(shift.date);
-                  return shiftDate >= startOfWeek && shiftDate <= endOfWeek;
+                  return shiftDate.getMonth() === currentMonth.getMonth() && 
+                         shiftDate.getFullYear() === currentMonth.getFullYear();
                 }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                if (weekShifts.length === 0) {
+                if (monthShifts.length === 0) {
                   return (
                     <div className="text-center py-8">
                       <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                      <p className="text-muted-foreground">Aucun shift planifié cette semaine.</p>
+                      <p className="text-muted-foreground">Aucun shift planifié ce mois-ci.</p>
                     </div>
                   );
                 }
 
                 // Grouper par date
-                const groupedByDate = weekShifts.reduce((acc, shift) => {
+                const groupedByDate = monthShifts.reduce((acc, shift) => {
                   const date = shift.date;
                   if (!acc[date]) {
                     acc[date] = [];
@@ -863,15 +848,13 @@ const ShiftCalendar = () => {
                                 <h6 className="text-base font-medium text-slate-900 dark:text-slate-100">
                                   {shift.title}
                                 </h6>
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                                   shift.validationStatus === 'validated' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
                                   shift.validationStatus === 'pending' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                                  shift.validationStatus === 'in_progress' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                                   'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                                 }`}>
                                   {shift.validationStatus === 'validated' ? 'Validé' : 
                                    shift.validationStatus === 'pending' ? 'En attente' : 
-                                   shift.validationStatus === 'in_progress' ? 'En cours' :
                                    'À venir'}
                                 </span>
                               </div>
@@ -880,13 +863,13 @@ const ShiftCalendar = () => {
                                 <span>🕐 {shift.start_time} - {shift.end_time}</span>
                                 <span>👥 {(shift.personnel?.cuisine?.length || 0) + (shift.personnel?.salle?.length || 0) + (shift.personnel?.bar?.length || 0)} pers.</span>
                                 {shift.personnel?.cuisine?.length > 0 && (
-                                  <span>🍳 {shift.personnel?.cuisine?.length} cuisine</span>
+                                  <span>🍳 {shift.personnel.cuisine.length} cuisine</span>
                                 )}
                                 {shift.personnel?.salle?.length > 0 && (
-                                  <span>🍽️ {shift.personnel?.salle?.length} salle</span>
+                                  <span>🍽️ {shift.personnel.salle.length} salle</span>
                                 )}
                                 {shift.personnel?.bar?.length > 0 && (
-                                  <span>🍸 {shift.personnel?.bar?.length} bar</span>
+                                  <span>🍸 {shift.personnel.bar.length} bar</span>
                                 )}
                               </div>
                             </div>
@@ -919,24 +902,19 @@ const ShiftCalendar = () => {
               <div className="flex items-center justify-between">
                 <button
                   className="btn-hero-outline btn-hero-sm"
-                  onClick={() => navigateWeek(-1)}
+                  onClick={() => navigateMonth(-1)}
                 >
                   <ChevronLeftIcon className="h-4 w-4 mr-1" />
                   Précédent
                 </button>
                 
                 <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {(() => {
-                    const weekDays = getDaysInWeek(currentWeek);
-                    const startDate = weekDays[0];
-                    const endDate = weekDays[6];
-                    return `${format(startDate, 'd MMM', { locale: fr })} - ${format(endDate, 'd MMM yyyy', { locale: fr })}`;
-                  })()}
+                  {format(currentMonth, 'MMMM yyyy', { locale: fr })}
                 </h4>
                 
                 <button
                   className="btn-hero-outline btn-hero-sm"
-                  onClick={() => navigateWeek(1)}
+                  onClick={() => navigateMonth(1)}
                 >
                   Suivant
                   <ChevronRightIcon className="h-4 w-4 ml-1" />
@@ -956,7 +934,7 @@ const ShiftCalendar = () => {
                 
                 {/* Grille des jours */}
                 <div className="grid grid-cols-7">
-                  {getDaysInWeek(currentWeek).map((date, index) => {
+                  {getDaysInMonth(currentMonth).map((date, index) => {
                     const dayShifts = date ? getShiftsForDate(date) : [];
                     const isToday = date && format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                     
@@ -1014,41 +992,66 @@ const ShiftCalendar = () => {
           )}
         </div>
       </div>
-      
-      {/* Outils - uniquement pour les managers */}
-      {hasRole(['manager']) && (
-        <div className="card-hero">
-          <div className="card-hero-header">
-            <h3 className="card-hero-title">Outils</h3>
+
+      {/* Légende */}
+      <div className="card-hero">
+        <div className="card-hero-content">
+          <h3 className="card-hero-title text-lg mb-4">Légende des couleurs</h3>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-500 rounded"></div>
+              <span className="text-sm text-slate-700 dark:text-slate-300">Heures validées</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-orange-500 rounded"></div>
+              <span className="text-sm text-slate-700 dark:text-slate-300">Heures en attente de validation</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-600 rounded"></div>
+              <span className="text-sm text-slate-700 dark:text-slate-300">Shift à venir</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-slate-500 rounded"></div>
+              <span className="text-sm text-slate-700 dark:text-slate-300">Erreur/Non défini</span>
+            </div>
           </div>
-          <div className="card-hero-content">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-end">
-              {/* Filtre de période pour l'export */}
-              <div className="lg:col-span-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label-hero">Date de début</label>
-                    <input 
-                      type="date"
-                      className="input-hero mt-1"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="label-hero">Date de fin</label>
-                    <input 
-                      type="date"
-                      className="input-hero mt-1"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </div>
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Cliquez sur un shift pour voir les détails du personnel</p>
+        </div>
+      </div>
+      
+      <div className="card-hero">
+        <div className="card-hero-header">
+          <h3 className="card-hero-title">Outils</h3>
+        </div>
+        <div className="card-hero-content">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-end">
+            {/* Filtre de période pour l'export */}
+            <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label-hero">Date de début</label>
+                  <input 
+                    type="date"
+                    className="input-hero mt-1"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label-hero">Date de fin</label>
+                  <input 
+                    type="date"
+                    className="input-hero mt-1"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
                 </div>
               </div>
-              
-              {/* Bouton d'export */}
-              <div>
+            </div>
+            
+            {/* Bouton d'export (uniquement pour les managers) */}
+            <div>
+              {hasRole(['manager']) && (
                 <button 
                   className="btn-hero-primary w-full"
                   onClick={exportToExcel}
@@ -1058,11 +1061,11 @@ const ShiftCalendar = () => {
                   </svg>
                   Exporter en Excel
                 </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
       
       {/* Modal de détails */}
       <ShiftDetailsModal />
@@ -1091,7 +1094,7 @@ const ShiftCalendar = () => {
                   </select>
                 </div>
                 <div className="border border-slate-200 dark:border-slate-700 rounded-md p-3 min-h-[100px] bg-slate-50 dark:bg-slate-800">
-                  {(editingShift.personnel?.cuisine || []).map(person => (
+                  {editingShift.personnel.cuisine.map(person => (
                     <div key={person.user_id} className="flex justify-between items-center mb-2 last:mb-0">
                       <span className="text-sm text-slate-700 dark:text-slate-300">{person.username}</span>
                       <Button 
@@ -1122,7 +1125,7 @@ const ShiftCalendar = () => {
                   </select>
                 </div>
                 <div className="border border-slate-200 dark:border-slate-700 rounded-md p-3 min-h-[100px] bg-slate-50 dark:bg-slate-800">
-                  {(editingShift.personnel?.salle || []).map(person => (
+                  {editingShift.personnel.salle.map(person => (
                     <div key={person.user_id} className="flex justify-between items-center mb-2 last:mb-0">
                       <span className="text-sm text-slate-700 dark:text-slate-300">{person.username}</span>
                       <Button 
@@ -1153,7 +1156,7 @@ const ShiftCalendar = () => {
                   </select>
                 </div>
                 <div className="border border-slate-200 dark:border-slate-700 rounded-md p-3 min-h-[100px] bg-slate-50 dark:bg-slate-800">
-                  {(editingShift.personnel?.bar || []).map(person => (
+                  {editingShift.personnel.bar.map(person => (
                     <div key={person.user_id} className="flex justify-between items-center mb-2 last:mb-0">
                       <span className="text-sm text-slate-700 dark:text-slate-300">{person.username}</span>
                       <Button 

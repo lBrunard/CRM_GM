@@ -653,6 +653,106 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* Widget Statistiques de la semaine */}
+          <div className="card-hero">
+            <div className="card-hero-header bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
+              <h3 className="card-hero-title text-white">
+                📊 Cette semaine
+              </h3>
+            </div>
+            <div className="card-hero-content">
+              {(() => {
+                const now = new Date();
+                const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                
+                const weekShifts = monthlyShifts.filter(shift => {
+                  const shiftDate = new Date(shift.date);
+                  return shiftDate >= weekStart && shiftDate <= weekEnd;
+                });
+                
+                const totalHoursThisWeek = weekShifts.reduce((total, shift) => {
+                  if (!shift.clock_in || !shift.clock_out) return total;
+                  const clockIn = new Date(shift.clock_in);
+                  const clockOut = new Date(shift.clock_out);
+                  const hours = (clockOut - clockIn) / (1000 * 60 * 60);
+                  return total + hours;
+                }, 0);
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{weekShifts.length}</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Shifts planifiés</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{totalHoursThisWeek.toFixed(1)}h</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Heures travaillées</div>
+                      </div>
+                    </div>
+                    
+                    {userDetails?.hourly_rate && (
+                      <div className="text-center p-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg">
+                        <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                          Gains cette semaine: {Math.round(totalHoursThisWeek * userDetails.hourly_rate)}€
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Widget Historique récent */}
+          {!currentShift && monthlyShifts.filter(s => s.clock_out).length > 0 && (
+            <div className="card-hero">
+              <div className="card-hero-header bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-t-lg">
+                <h3 className="card-hero-title text-white">
+                  📈 Historique récent
+                </h3>
+              </div>
+              <div className="card-hero-content">
+                <div className="space-y-3">
+                  {monthlyShifts
+                    .filter(shift => shift.clock_out)
+                    .sort((a, b) => new Date(b.clock_out) - new Date(a.clock_out))
+                    .slice(0, 3)
+                    .map(shift => (
+                      <div key={shift.user_shift_id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <div>
+                          <div className="font-medium text-slate-900 dark:text-slate-100">{shift.title}</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                            {formatDateWithDay(shift.date)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {(() => {
+                              const clockIn = new Date(shift.clock_in);
+                              const clockOut = new Date(shift.clock_out);
+                              const duration = (clockOut - clockIn) / (1000 * 60 * 60);
+                              return `${duration.toFixed(1)}h`;
+                            })()}
+                          </div>
+                          <div className={`text-xs ${shift.validated ? 'text-green-600' : 'text-orange-600'}`}>
+                            {shift.validated ? '✅ Validé' : '⏳ En attente'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  <div className="text-center">
+                    <Link to="/calendar" className="text-blue-600 dark:text-blue-400 text-sm hover:underline">
+                      Voir tout l'historique →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Shifts passés récents */}
           {pastShifts.length > 0 && (
             <div className="card-hero">

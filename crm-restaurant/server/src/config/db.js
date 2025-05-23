@@ -23,12 +23,25 @@ function initializeDatabase() {
     password TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('personnel', 'responsable', 'manager')),
+    first_name TEXT,
+    last_name TEXT,
+    hourly_rate DECIMAL(10,2),
+    positions TEXT DEFAULT '[]',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`, (err) => {
     if (err) {
       console.error('Erreur lors de la création de la table users:', err.message);
     } else {
       console.log('Table users créée ou déjà existante');
+      
+      // Mettre à jour les positions NULL vers '[]' pour les utilisateurs existants
+      db.run(`UPDATE users SET positions = '[]' WHERE positions IS NULL`, (err) => {
+        if (err) {
+          console.error('Erreur lors de la mise à jour des positions:', err.message);
+        } else {
+          console.log('Positions initialisées pour les utilisateurs existants');
+        }
+      });
     }
   });
 

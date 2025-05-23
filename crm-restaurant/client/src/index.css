@@ -5,6 +5,14 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Espacement pour la navigation mobile fixe */
+@media (max-width: 768px) {
+  body {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0));
+  }
 }
 
 code {

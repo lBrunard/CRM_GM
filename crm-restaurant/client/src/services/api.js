@@ -94,8 +94,9 @@ const timeclockService = {
 
 // Services de gestion des utilisateurs
 const userService = {
-  getAllUsers: () => api.get('/users/all'),
+  getAllUsers: () => api.get('/users'),
   getUserById: (id) => api.get(`/users/${id}`),
+  getCurrentUser: () => api.get('/users/me'),
   updateUser: (id, userData) => api.put(`/users/${id}`, userData),
   updateProfile: (id, profileData) => api.put(`/users/${id}/profile`, profileData),
   updateUserProfile: (id, profileData) => api.put(`/users/${id}/profile`, profileData)

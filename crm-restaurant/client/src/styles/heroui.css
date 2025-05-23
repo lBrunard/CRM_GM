@@ -1,0 +1,228 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+/* Base styles */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Mobile navigation padding */
+  body.has-bottom-nav {
+    padding-bottom: 4rem; /* 64px pour la hauteur de la navigation */
+  }
+
+  @media (min-width: 768px) {
+    body.has-bottom-nav {
+      padding-bottom: 0;
+    }
+  }
+}
+
+/* Hero UI Component Classes */
+@layer components {
+  /* Buttons */
+  .btn-hero {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-hero-primary {
+    @apply btn-hero bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .btn-hero-secondary {
+    @apply btn-hero bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700;
+  }
+
+  .btn-hero-outline {
+    @apply btn-hero border border-slate-300 bg-white hover:bg-slate-50 hover:text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100;
+  }
+
+  .btn-hero-ghost {
+    @apply btn-hero hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100;
+  }
+
+  .btn-hero-link {
+    @apply btn-hero text-blue-600 underline-offset-4 hover:underline;
+  }
+
+  .btn-hero-destructive {
+    @apply btn-hero bg-red-600 text-white hover:bg-red-700;
+  }
+
+  /* Button sizes */
+  .btn-hero-sm {
+    @apply h-9 rounded-md px-3;
+  }
+
+  .btn-hero {
+    @apply h-10 px-4 py-2;
+  }
+
+  .btn-hero-lg {
+    @apply h-11 rounded-md px-8;
+  }
+
+  .btn-hero-icon {
+    @apply h-10 w-10;
+  }
+
+  /* Cards */
+  .card-hero {
+    @apply rounded-lg border border-slate-200 bg-white text-slate-900 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100;
+  }
+
+  .card-hero-header {
+    @apply flex flex-col space-y-1.5 p-6;
+  }
+
+  .card-hero-title {
+    @apply text-2xl font-semibold leading-none tracking-tight;
+  }
+
+  .card-hero-description {
+    @apply text-sm text-slate-600 dark:text-slate-400;
+  }
+
+  .card-hero-content {
+    @apply p-6 pt-0;
+  }
+
+  .card-hero-footer {
+    @apply flex items-center p-6 pt-0;
+  }
+
+  /* Form elements */
+  .input-hero {
+    @apply flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-400;
+  }
+
+  .label-hero {
+    @apply text-sm font-medium leading-none text-slate-900 dark:text-slate-100;
+  }
+
+  /* Badge */
+  .badge-hero {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+
+  .badge-hero-default {
+    @apply badge-hero border-transparent bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .badge-hero-secondary {
+    @apply badge-hero border-transparent bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100;
+  }
+
+  .badge-hero-destructive {
+    @apply badge-hero border-transparent bg-red-600 text-white hover:bg-red-700;
+  }
+
+  .badge-hero-outline {
+    @apply badge-hero text-slate-900 dark:text-slate-100;
+  }
+
+  /* Alert */
+  .alert-hero {
+    @apply relative w-full rounded-lg border border-slate-200 p-4 dark:border-slate-800;
+  }
+
+  .alert-hero-destructive {
+    @apply alert-hero border-red-200 text-red-900 dark:border-red-800 dark:text-red-100;
+  }
+
+  .alert-hero-title {
+    @apply mb-1 font-medium leading-none tracking-tight;
+  }
+
+  .alert-hero-description {
+    @apply text-sm;
+  }
+
+  /* Dark mode toggle */
+  .dark-mode-toggle {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white hover:bg-slate-50 hover:text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100;
+  }
+
+  /* Loading states */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-current border-t-transparent;
+  }
+
+  /* Clock buttons for restaurant app */
+  .clock-btn {
+    @apply btn-hero-primary btn-hero-lg w-full shadow-lg transition-all duration-200 hover:shadow-xl;
+  }
+
+  .clock-btn-out {
+    @apply btn-hero bg-orange-500 text-white hover:bg-orange-600;
+  }
+
+  /* Mobile card patterns */
+  .mobile-card-hero {
+    @apply card-hero p-4 space-y-3;
+  }
+
+  .mobile-card-hero-header {
+    @apply flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-700;
+  }
+
+  .mobile-card-hero-body {
+    @apply space-y-2;
+  }
+
+  .mobile-card-hero-row {
+    @apply flex items-center justify-between py-1;
+  }
+
+  .mobile-card-hero-actions {
+    @apply flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-700;
+  }
+
+  /* Dashboard stats */
+  .stat-card {
+    @apply card-hero text-center p-6 hover:shadow-md transition-shadow;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold mb-2;
+  }
+
+  .stat-label {
+    @apply text-sm text-slate-600 dark:text-slate-400;
+  }
+
+  /* Restaurant specific colors */
+  .cuisine-badge {
+    @apply badge-hero bg-red-500 text-white;
+  }
+
+  .salle-badge {
+    @apply badge-hero bg-blue-500 text-white;
+  }
+
+  .bar-badge {
+    @apply badge-hero bg-orange-500 text-white;
+  }
+
+  /* Bottom navigation mobile */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Dark mode utilities */
+@layer utilities {
+  .dark-mode-transition {
+    @apply transition-colors duration-300 ease-in-out;
+  }
+} 

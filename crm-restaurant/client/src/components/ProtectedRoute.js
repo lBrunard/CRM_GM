@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 
 // Composant pour protéger les routes en fonction de l'authentification et des rôles
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, isAuthenticated, loading, hasRole } = useContext(AuthContext);
+  const { isAuthenticated, loading, hasRole } = useContext(AuthContext);
   
   // Si l'authentification est en cours de chargement, on affiche rien pour éviter des redirections flash
   if (loading) {

@@ -118,12 +118,30 @@ const login = (req, res) => {
 
 // Récupération de tous les utilisateurs (réservé aux managers)
 const getAllUsers = (req, res) => {
-  db.all(`SELECT id, username, email, role, first_name, last_name, phone, 
-          national_number, address, iban, hourly_rate, created_at FROM users`, (err, users) => {
+  const { position } = req.query; // Paramètre optionnel pour filtrer par position
+  
+  let query = `SELECT id, username, email, role, first_name, last_name, phone, 
+               national_number, address, iban, hourly_rate, positions, created_at FROM users`;
+  let params = [];
+  
+  // Si une position est spécifiée, filtrer les utilisateurs qui peuvent occuper cette position
+  if (position && ['cuisine', 'salle', 'bar'].includes(position)) {
+    query += ` WHERE positions LIKE ?`;
+    params.push(`%"${position}"%`);
+  }
+  
+  db.all(query, params, (err, users) => {
     if (err) {
       return res.status(500).json({ message: 'Erreur lors de la récupération des utilisateurs', error: err.message });
     }
-    res.json(users);
+    
+    // Parser les positions JSON pour chaque utilisateur
+    const usersWithPositions = users.map(user => ({
+      ...user,
+      positions: user.positions ? JSON.parse(user.positions) : []
+    }));
+    
+    res.json(usersWithPositions);
   });
 };
 
@@ -132,7 +150,7 @@ const getUserById = (req, res) => {
   const { id } = req.params;
   
   db.get(`SELECT id, username, email, role, first_name, last_name, phone, 
-          national_number, address, iban, hourly_rate, created_at FROM users WHERE id = ?`, [id], (err, user) => {
+          national_number, address, iban, hourly_rate, positions, created_at FROM users WHERE id = ?`, [id], (err, user) => {
     if (err) {
       return res.status(500).json({ message: 'Erreur lors de la récupération de l\'utilisateur', error: err.message });
     }
@@ -141,14 +159,44 @@ const getUserById = (req, res) => {
       return res.status(404).json({ message: 'Utilisateur non trouvé' });
     }
     
-    res.json(user);
+    // Parser les positions JSON
+    const userWithPositions = {
+      ...user,
+      positions: user.positions ? JSON.parse(user.positions) : []
+    };
+    
+    res.json(userWithPositions);
+  });
+};
+
+// Récupération des informations de l'utilisateur connecté (accessible à tous les utilisateurs connectés)
+const getCurrentUser = (req, res) => {
+  const userId = req.user.id; // L'ID vient du token JWT décodé par le middleware authenticate
+  
+  db.get(`SELECT id, username, email, role, first_name, last_name, phone, 
+          national_number, address, iban, hourly_rate, positions, created_at FROM users WHERE id = ?`, [userId], (err, user) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur lors de la récupération de l\'utilisateur', error: err.message });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+    
+    // Parser les positions JSON
+    const userWithPositions = {
+      ...user,
+      positions: user.positions ? JSON.parse(user.positions) : []
+    };
+    
+    res.json(userWithPositions);
   });
 };
 
 // Mise à jour complète d'un utilisateur (réservé aux managers)
 const updateUser = (req, res) => {
   const { id } = req.params;
-  const { username, email, role, first_name, last_name, phone, national_number, address, iban, hourly_rate } = req.body;
+  const { username, email, role, first_name, last_name, phone, national_number, address, iban, hourly_rate, positions } = req.body;
   
   if (!username || !email || !role) {
     return res.status(400).json({ message: 'Username, email et rôle sont requis' });
@@ -156,6 +204,13 @@ const updateUser = (req, res) => {
   
   if (!['personnel', 'responsable', 'manager'].includes(role)) {
     return res.status(400).json({ message: 'Rôle invalide' });
+  }
+  
+  // Valider les positions si fournies
+  let positionsJson = null;
+  if (positions && Array.isArray(positions)) {
+    const validPositions = positions.filter(pos => ['cuisine', 'salle', 'bar'].includes(pos));
+    positionsJson = JSON.stringify(validPositions);
   }
   
   // Vérifier que l'username ou email ne sont pas déjà utilisés par un autre utilisateur
@@ -170,9 +225,9 @@ const updateUser = (req, res) => {
     
     db.run(
       `UPDATE users SET username = ?, email = ?, role = ?, first_name = ?, last_name = ?, 
-       phone = ?, national_number = ?, address = ?, iban = ?, hourly_rate = ? WHERE id = ?`,
+       phone = ?, national_number = ?, address = ?, iban = ?, hourly_rate = ?, positions = ? WHERE id = ?`,
       [username, email, role, first_name || null, last_name || null, phone || null, 
-       national_number || null, address || null, iban || null, hourly_rate || 0, id],
+       national_number || null, address || null, iban || null, hourly_rate || 0, positionsJson, id],
       function(err) {
         if (err) {
           return res.status(500).json({ message: 'Erreur lors de la mise à jour', error: err.message });
@@ -188,20 +243,20 @@ const updateUser = (req, res) => {
   });
 };
 
-// Mise à jour du profil (utilisateur peut modifier ses propres données sauf le taux horaire)
-const updateProfile = (req, res) => {
+// Mise à jour du profil utilisateur (accessible à tous les utilisateurs connectés)
+const updateUserProfile = (req, res) => {
   const { id } = req.params;
-  const { username, email, first_name, last_name, phone, national_number, address, iban } = req.body;
-  const requestUserId = req.user.id; // De l'authentification middleware
-  const requestUserRole = req.user.role;
-  
-  // Vérifier que l'utilisateur modifie son propre profil ou est un manager
-  if (requestUserId !== parseInt(id) && requestUserRole !== 'manager') {
-    return res.status(403).json({ message: 'Vous ne pouvez modifier que votre propre profil' });
-  }
+  const { username, email, first_name, last_name, phone, national_number, address, iban, positions } = req.body;
   
   if (!username || !email) {
     return res.status(400).json({ message: 'Username et email sont requis' });
+  }
+  
+  // Valider les positions si fournies
+  let positionsJson = null;
+  if (positions && Array.isArray(positions)) {
+    const validPositions = positions.filter(pos => ['cuisine', 'salle', 'bar'].includes(pos));
+    positionsJson = JSON.stringify(validPositions);
   }
   
   // Vérifier que l'username ou email ne sont pas déjà utilisés par un autre utilisateur
@@ -216,12 +271,12 @@ const updateProfile = (req, res) => {
     
     db.run(
       `UPDATE users SET username = ?, email = ?, first_name = ?, last_name = ?, 
-       phone = ?, national_number = ?, address = ?, iban = ? WHERE id = ?`,
+       phone = ?, national_number = ?, address = ?, iban = ?, positions = ? WHERE id = ?`,
       [username, email, first_name || null, last_name || null, phone || null, 
-       national_number || null, address || null, iban || null, id],
+       national_number || null, address || null, iban || null, positionsJson, id],
       function(err) {
         if (err) {
-          return res.status(500).json({ message: 'Erreur lors de la mise à jour du profil', error: err.message });
+          return res.status(500).json({ message: 'Erreur lors de la mise à jour', error: err.message });
         }
         
         if (this.changes === 0) {
@@ -240,5 +295,6 @@ module.exports = {
   getAllUsers,
   getUserById,
   updateUser,
-  updateProfile
+  updateUserProfile,
+  getCurrentUser
 }; 

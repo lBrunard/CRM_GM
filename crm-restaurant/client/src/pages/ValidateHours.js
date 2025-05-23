@@ -2,6 +2,17 @@ import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { timeclockService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { 
+  ClockIcon, 
+  CheckCircleIcon, 
+  PencilIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ExclamationTriangleIcon,
+  UserIcon,
+  XMarkIcon,
+  CheckIcon
+} from '@heroicons/react/24/outline';
 
 const ValidateHours = () => {
   const { user, hasRole } = useContext(AuthContext);
@@ -12,8 +23,12 @@ const ValidateHours = () => {
   const [success, setSuccess] = useState('');
   const [validationLoading, setValidationLoading] = useState(false);
   const [comments, setComments] = useState({});
-  const [editingHours, setEditingHours] = useState({});
   const [showValidated, setShowValidated] = useState(false);
+  const [collapsedDays, setCollapsedDays] = useState(new Set());
+  
+  // États pour le modal d'édition
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [currentEditingHour, setCurrentEditingHour] = useState(null);
 
   // Vérifier que seuls les responsables et managers ont accès à cette page
   useEffect(() => {
@@ -116,46 +131,45 @@ const ValidateHours = () => {
     }
   };
 
-  // Commencer l'édition des heures
-  const startEditingHours = (hourId, clockIn, clockOut) => {
-    setEditingHours({
-      ...editingHours,
-      [hourId]: {
-        clockIn: formatTimeForInput(clockIn),
-        clockOut: formatTimeForInput(clockOut)
-      }
+  // Ouvrir le modal d'édition
+  const openEditModal = (hour) => {
+    setCurrentEditingHour({
+      ...hour,
+      clockIn: formatTimeForInput(hour.clock_in),
+      clockOut: formatTimeForInput(hour.clock_out)
     });
+    setEditModalOpen(true);
   };
 
-  // Annuler l'édition
-  const cancelEditingHours = (hourId) => {
-    const updated = { ...editingHours };
-    delete updated[hourId];
-    setEditingHours(updated);
+  // Fermer le modal d'édition
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setCurrentEditingHour(null);
   };
 
   // Sauvegarder les heures modifiées
-  const saveEditedHours = async (hourId) => {
+  const saveEditedHours = async () => {
+    if (!currentEditingHour) return;
+    
     try {
       setValidationLoading(true);
       setError('');
       setSuccess('');
 
-      const editedData = editingHours[hourId];
-      const clockInTimestamp = editedData.clockIn ? new Date(`2000-01-01T${editedData.clockIn}:00`).toISOString() : undefined;
-      const clockOutTimestamp = editedData.clockOut ? new Date(`2000-01-01T${editedData.clockOut}:00`).toISOString() : undefined;
+      const clockInTimestamp = currentEditingHour.clockIn ? 
+        new Date(`2000-01-01T${currentEditingHour.clockIn}:00`).toISOString() : undefined;
+      const clockOutTimestamp = currentEditingHour.clockOut ? 
+        new Date(`2000-01-01T${currentEditingHour.clockOut}:00`).toISOString() : undefined;
 
       await timeclockService.updateHours({
-        userShiftId: hourId,
+        userShiftId: currentEditingHour.id,
         clockIn: clockInTimestamp,
         clockOut: clockOutTimestamp,
         validatorId: user.id
       });
 
       setSuccess('Heures modifiées avec succès');
-      
-      // Arrêter l'édition
-      cancelEditingHours(hourId);
+      closeEditModal();
       
       // Recharger les données
       loadHours();
@@ -165,17 +179,6 @@ const ValidateHours = () => {
     } finally {
       setValidationLoading(false);
     }
-  };
-
-  // Mettre à jour les heures en cours d'édition
-  const updateEditingHours = (hourId, field, value) => {
-    setEditingHours({
-      ...editingHours,
-      [hourId]: {
-        ...editingHours[hourId],
-        [field]: value
-      }
-    });
   };
 
   // Mettre à jour le commentaire
@@ -188,7 +191,12 @@ const ValidateHours = () => {
 
   // Formater une date pour l'affichage
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('fr-FR', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   };
 
   // Formater un horodatage pour l'affichage
@@ -197,73 +205,100 @@ const ValidateHours = () => {
     return new Date(timeString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Formater un horodatage pour l'input time
+  // Formater un horodatage pour les inputs
   const formatTimeForInput = (timeString) => {
     if (!timeString) return '';
     const date = new Date(timeString);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return date.toTimeString().slice(0, 5);
   };
 
-  // Calculer la durée entre entrée et sortie
+  // Calculer la durée de travail
   const calculateDuration = (clockIn, clockOut) => {
     if (!clockIn || !clockOut) return '-';
     
     const start = new Date(clockIn);
     const end = new Date(clockOut);
-    const diff = end - start;
+    const duration = end - start;
     
-    // Convertir en heures et minutes
-    const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 3600000) / 60000);
+    const hours = Math.floor(duration / (1000 * 60 * 60));
+    const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
     
-    return `${hours}h${minutes < 10 ? '0' : ''}${minutes}`;
+    return `${hours}h${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Basculer la visibilité d'un jour
+  const toggleDayVisibility = (date) => {
+    const newCollapsed = new Set(collapsedDays);
+    if (newCollapsed.has(date)) {
+      newCollapsed.delete(date);
+    } else {
+      newCollapsed.add(date);
+    }
+    setCollapsedDays(newCollapsed);
+  };
+
+  // Obtenir les stats d'un jour
+  const getDayStats = (date) => {
+    const dayShifts = Object.values(groupedHours[date]);
+    const totalHours = dayShifts.reduce((acc, shift) => acc + shift.hours.length, 0);
+    const validatedHours = dayShifts.reduce((acc, shift) => acc + shift.hours.filter(h => h.validated).length, 0);
+    const pendingHours = totalHours - validatedHours;
+    
+    return { totalHours, validatedHours, pendingHours };
   };
 
   if (loading) {
     return (
-      <div className="container mt-5">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Chargement...</span>
-          </div>
-          <p className="mt-2">Chargement des heures à valider...</p>
+          <div className="loading-spinner w-8 h-8 text-blue-600 mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Chargement des heures à valider...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mt-4 mb-5">
-      <h1 className="mb-4">Validation et modification des heures</h1>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+          Validation des heures
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400">
+          Gérez et validez les pointages des employés
+        </p>
+      </div>
       
       {error && (
-        <div className="alert alert-danger" role="alert">
-          {error}
+        <div className="alert-hero alert-hero-destructive">
+          <ExclamationTriangleIcon className="h-4 w-4" />
+          <div className="alert-hero-description">{error}</div>
         </div>
       )}
       
       {success && (
-        <div className="alert alert-success" role="alert">
-          {success}
+        <div className="alert-hero alert-hero-success">
+          <CheckCircleIcon className="h-4 w-4" />
+          <div className="alert-hero-description">{success}</div>
         </div>
       )}
       
       {/* Filtres */}
       {user.role === 'manager' && (
-        <div className="card mb-4">
-          <div className="card-body">
-            <div className="form-check form-switch">
-              <input 
-                className="form-check-input" 
-                type="checkbox" 
-                id="showValidatedSwitch"
-                checked={showValidated}
-                onChange={(e) => setShowValidated(e.target.checked)}
-              />
-              <label className="form-check-label" htmlFor="showValidatedSwitch">
-                Afficher aussi les heures déjà validées
+        <div className="card-hero">
+          <div className="card-hero-content">
+            <div className="flex items-center justify-center">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={showValidated}
+                  onChange={(e) => setShowValidated(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                />
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  Afficher aussi les heures déjà validées
+                </span>
               </label>
             </div>
           </div>
@@ -271,157 +306,256 @@ const ValidateHours = () => {
       )}
       
       {hours.length === 0 ? (
-        <div className="alert alert-info">
-          {showValidated ? 'Aucune heure trouvée.' : 'Aucune heure en attente de validation.'}
+        <div className="card-hero">
+          <div className="card-hero-content text-center py-12">
+            <ClockIcon className="h-16 w-16 mx-auto text-slate-400 mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              Aucun pointage trouvé
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              {showValidated ? 'Aucune heure trouvée dans la base de données.' : 'Aucune heure en attente de validation.'}
+            </p>
+          </div>
         </div>
       ) : (
         <>
-          {sortedDates.map(date => (
-            <div key={date} className="mb-4">
-              <h4 className="border-bottom pb-2 mb-3">
-                {formatDate(date)}
-              </h4>
-              
-              {Object.values(groupedHours[date]).map(shiftGroup => (
-                <div key={`${shiftGroup.shift_id}-${shiftGroup.title}`} className="card mb-3">
-                  <div className="card-header bg-light">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">
-                        {shiftGroup.title}
-                      </h5>
-                      <span className="badge bg-primary">
-                        {shiftGroup.start_time} - {shiftGroup.end_time}
-                      </span>
+          {sortedDates.map(date => {
+            const dayStats = getDayStats(date);
+            const isCollapsed = collapsedDays.has(date);
+            
+            return (
+              <div key={date} className="space-y-4">
+                {/* Header du jour avec stats */}
+                <div 
+                  className="card-hero cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  onClick={() => toggleDayVisibility(date)}
+                >
+                  <div className="card-hero-content">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {isCollapsed ? (
+                          <ChevronRightIcon className="h-5 w-5 text-slate-400" />
+                        ) : (
+                          <ChevronDownIcon className="h-5 w-5 text-slate-400" />
+                        )}
+                        <div>
+                          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                            {formatDate(date)}
+                          </h2>
+                          <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 mt-1">
+                            <span className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              {dayStats.validatedHours} validé{dayStats.validatedHours > 1 ? 's' : ''}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                              {dayStats.pendingHours} en attente
+                            </span>
+                            <span className="text-slate-400">
+                              Total: {dayStats.totalHours} pointage{dayStats.totalHours > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {dayStats.pendingHours === 0 && dayStats.totalHours > 0 && (
+                        <div className="badge-hero bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          <CheckCircleIcon className="h-4 w-4 mr-2" />
+                          Jour validé
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="card-body">
-                    <div className="table-responsive">
-                      <table className="table table-sm mb-0">
-                        <thead>
-                          <tr>
-                            <th>Employé</th>
-                            <th>Pointages</th>
-                            <th>Durée</th>
-                            <th>Statut</th>
-                            <th>Commentaire</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {shiftGroup.hours.map(hour => {
-                            const isEditing = editingHours[hour.id];
-                            
-                            return (
-                              <tr key={hour.id}>
-                                <td>
-                                  <strong>{hour.username}</strong>
+                </div>
+                
+                {/* Contenu du jour */}
+                {!isCollapsed && Object.values(groupedHours[date]).map(shiftGroup => (
+                  <div key={`${shiftGroup.shift_id}-${shiftGroup.title}`} className="card-hero">
+                    <div className="card-hero-header bg-slate-50 dark:bg-slate-800">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                          {shiftGroup.title}
+                        </h3>
+                        <div className="badge-hero bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          {shiftGroup.start_time} - {shiftGroup.end_time}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="card-hero-content">
+                      {/* Vue desktop - Tableau */}
+                      <div className="hidden lg:block overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-700">
+                              <th className="text-left py-4 px-4 font-semibold text-slate-900 dark:text-slate-100">Employé</th>
+                              <th className="text-center py-4 px-4 font-semibold text-slate-900 dark:text-slate-100">Pointages</th>
+                              <th className="text-center py-4 px-4 font-semibold text-slate-900 dark:text-slate-100">Durée</th>
+                              <th className="text-center py-4 px-4 font-semibold text-slate-900 dark:text-slate-100">Statut</th>
+                              <th className="text-center py-4 px-4 font-semibold text-slate-900 dark:text-slate-100">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {shiftGroup.hours.map(hour => (
+                              <tr key={hour.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td className="py-4 px-4">
+                                  <div className="flex items-center gap-3">
+                                    <UserIcon className="h-5 w-5 text-slate-400" />
+                                    <span className="font-medium text-slate-900 dark:text-slate-100">{hour.username}</span>
+                                  </div>
                                 </td>
-                                <td>
-                                  {isEditing ? (
-                                    <div className="d-flex gap-2">
-                                      <input 
-                                        type="time"
-                                        className="form-control form-control-sm"
-                                        value={isEditing.clockIn}
-                                        onChange={(e) => updateEditingHours(hour.id, 'clockIn', e.target.value)}
-                                      />
-                                      <span>-</span>
-                                      <input 
-                                        type="time"
-                                        className="form-control form-control-sm"
-                                        value={isEditing.clockOut}
-                                        onChange={(e) => updateEditingHours(hour.id, 'clockOut', e.target.value)}
-                                      />
-                                    </div>
-                                  ) : (
-                                    `${formatTime(hour.clock_in)} - ${formatTime(hour.clock_out)}`
-                                  )}
+                                <td className="py-4 px-4 text-center">
+                                  <div className="text-sm font-mono text-slate-700 dark:text-slate-300">
+                                    {formatTime(hour.clock_in)} - {formatTime(hour.clock_out)}
+                                  </div>
                                 </td>
-                                <td>
-                                  {calculateDuration(hour.clock_in, hour.clock_out)}
+                                <td className="py-4 px-4 text-center">
+                                  <div className="font-medium text-slate-900 dark:text-slate-100">
+                                    {calculateDuration(hour.clock_in, hour.clock_out)}
+                                  </div>
                                 </td>
-                                <td>
-                                  <span className={`badge ${hour.validated ? 'bg-success' : 'bg-warning'}`}>
-                                    {hour.validated ? 'Validé' : 'En attente'}
-                                  </span>
-                                </td>
-                                <td>
-                                  <textarea 
-                                    className="form-control form-control-sm"
-                                    placeholder="Commentaire optionnel"
-                                    value={comments[hour.id] || ''}
-                                    onChange={(e) => handleCommentChange(hour.id, e.target.value)}
-                                    disabled={isEditing}
-                                    rows="1"
-                                  />
-                                </td>
-                                <td>
-                                  <div className="btn-group-vertical" role="group">
-                                    {isEditing ? (
+                                <td className="py-4 px-4 text-center">
+                                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                    hour.validated 
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                      : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                                  }`}>
+                                    {hour.validated ? (
                                       <>
-                                        <button 
-                                          className="btn btn-success btn-sm mb-1"
-                                          onClick={() => saveEditedHours(hour.id)}
-                                          disabled={validationLoading}
-                                        >
-                                          Sauvegarder
-                                        </button>
-                                        <button 
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={() => cancelEditingHours(hour.id)}
-                                          disabled={validationLoading}
-                                        >
-                                          Annuler
-                                        </button>
+                                        <CheckCircleIcon className="h-4 w-4 mr-1" />
+                                        Validé
                                       </>
                                     ) : (
                                       <>
-                                        <button 
-                                          className="btn btn-warning btn-sm mb-1"
-                                          onClick={() => startEditingHours(hour.id, hour.clock_in, hour.clock_out)}
-                                          disabled={validationLoading}
-                                        >
-                                          Modifier
-                                        </button>
-                                        {!hour.validated && (
-                                          <button 
-                                            className="btn btn-success btn-sm"
-                                            onClick={() => handleValidate(hour.id)}
-                                            disabled={validationLoading}
-                                          >
-                                            {validationLoading ? 'En cours...' : 'Valider'}
-                                          </button>
-                                        )}
+                                        <ClockIcon className="h-4 w-4 mr-1" />
+                                        En attente
                                       </>
                                     )}
                                   </div>
                                 </td>
+                                <td className="py-4 px-4 text-center">
+                                  <div className="flex gap-2 justify-center">
+                                    <button
+                                      onClick={() => openEditModal(hour)}
+                                      className="btn-hero-secondary btn-hero-sm"
+                                    >
+                                      <PencilIcon className="h-4 w-4 mr-1" />
+                                      Modifier
+                                    </button>
+                                    {!hour.validated && (
+                                      <button
+                                        onClick={() => handleValidate(hour.id)}
+                                        disabled={validationLoading}
+                                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center shadow-sm"
+                                      >
+                                        <CheckIcon className="h-4 w-4 mr-1" />
+                                        {validationLoading ? 'Validation...' : 'Valider'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    
-                    {/* Actions groupées pour le shift */}
-                    <div className="mt-3 border-top pt-3">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <small className="text-muted">
-                            {shiftGroup.hours.filter(h => h.validated).length} / {shiftGroup.hours.length} validé(s)
-                          </small>
-                        </div>
-                        <div>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Vue mobile optimisée */}
+                      <div className="lg:hidden space-y-4">
+                        {shiftGroup.hours.map(hour => (
+                          <div key={hour.id} className="mobile-card-hero">
+                            <div className="mobile-card-hero-header">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <UserIcon className="h-5 w-5 text-slate-400" />
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100">{hour.username}</span>
+                                </div>
+                                <div className={`badge-hero ${
+                                  hour.validated 
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                    : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                                }`}>
+                                  {hour.validated ? 'Validé' : 'En attente'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mobile-card-hero-body">
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="text-center">
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium mb-2">
+                                    Pointages
+                                  </div>
+                                  <div className="text-sm font-mono text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 py-2 px-3 rounded-lg">
+                                    {formatTime(hour.clock_in)} - {formatTime(hour.clock_out)}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium mb-2">
+                                    Durée
+                                  </div>
+                                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                                    {calculateDuration(hour.clock_in, hour.clock_out)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Commentaire mobile */}
+                              <div className="mt-4">
+                                <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium mb-2">
+                                  Commentaire
+                                </div>
+                                <textarea 
+                                  className="input-hero text-sm resize-none w-full"
+                                  placeholder="Ajouter un commentaire de validation..."
+                                  value={comments[hour.id] || ''}
+                                  onChange={(e) => handleCommentChange(hour.id, e.target.value)}
+                                  rows="2"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Actions mobile */}
+                            <div className="mobile-card-hero-actions">
+                              <div className="grid grid-cols-2 gap-3">
+                                <button
+                                  onClick={() => openEditModal(hour)}
+                                  className="btn-hero-secondary w-full"
+                                >
+                                  <PencilIcon className="h-4 w-4 mr-2" />
+                                  Modifier
+                                </button>
+                                {!hour.validated && (
+                                  <button
+                                    onClick={() => handleValidate(hour.id)}
+                                    disabled={validationLoading}
+                                    className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center shadow-sm"
+                                  >
+                                    <CheckIcon className="h-4 w-4 mr-2" />
+                                    {validationLoading ? 'Validation...' : 'Valider'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Actions groupées pour le shift */}
+                      <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                            Progression: {shiftGroup.hours.filter(h => h.validated).length} / {shiftGroup.hours.length} validé{shiftGroup.hours.length > 1 ? 's' : ''}
+                          </span>
                           {shiftGroup.hours.some(h => !h.validated) && (
                             <button 
-                              className="btn btn-success btn-sm"
                               onClick={() => {
-                                // Valider tous les heures non validées de ce shift
                                 shiftGroup.hours
                                   .filter(h => !h.validated)
                                   .forEach(h => handleValidate(h.id));
                               }}
                               disabled={validationLoading}
+                              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors duration-200 shadow-sm"
                             >
                               Valider tout le shift
                             </button>
@@ -430,18 +564,102 @@ const ValidateHours = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ))}
+                ))}
+              </div>
+            );
+          })}
         </>
       )}
+
+      {/* Modal d'édition */}
+      {editModalOpen && currentEditingHour && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-xl shadow-2xl">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                    Modifier les heures
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    {currentEditingHour.username}
+                  </p>
+                </div>
+                <button
+                  onClick={closeEditModal}
+                  className="btn-hero-secondary btn-hero-sm"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Heure d'entrée
+                </label>
+                <input 
+                  type="time"
+                  className="input-hero w-full text-lg"
+                  value={currentEditingHour.clockIn}
+                  onChange={(e) => setCurrentEditingHour({
+                    ...currentEditingHour,
+                    clockIn: e.target.value
+                  })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Heure de sortie
+                </label>
+                <input 
+                  type="time"
+                  className="input-hero w-full text-lg"
+                  value={currentEditingHour.clockOut}
+                  onChange={(e) => setCurrentEditingHour({
+                    ...currentEditingHour,
+                    clockOut: e.target.value
+                  })}
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={closeEditModal}
+                    className="btn-hero-secondary w-full py-3"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={saveEditedHours}
+                    disabled={validationLoading}
+                    className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200 shadow-sm"
+                  >
+                    {validationLoading ? 'Sauvegarde...' : 'Sauvegarder'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
-      {hours.length > 0 && (
-        <div className="mt-3">
-          {user.role === 'responsable' && (
-            <p><strong>Responsable:</strong> Vous ne pouvez modifier que les shifts auxquels vous participez.</p>
-          )}
+      {hours.length > 0 && user.role === 'responsable' && (
+        <div className="card-hero bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <div className="card-hero-content text-center">
+            <div className="flex items-center justify-center gap-2 text-blue-800 dark:text-blue-200">
+              <ExclamationTriangleIcon className="h-5 w-5" />
+              <p className="font-medium">
+                Note importante
+              </p>
+            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+              En tant que responsable, vous ne pouvez modifier que les shifts auxquels vous participez.
+            </p>
+          </div>
         </div>
       )}
     </div>

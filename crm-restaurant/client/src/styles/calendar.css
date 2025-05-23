@@ -1,92 +1,175 @@
-/* Personnalisation du calendrier */
+/* Hero UI Calendar Styling */
 
-/* Style des boutons de navigation */
+/* Navigation toolbar */
+.rbc-toolbar {
+  @apply mb-6 flex flex-wrap items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm;
+}
+
+.rbc-toolbar-label {
+  @apply text-lg font-semibold text-slate-900 dark:text-slate-100;
+}
+
+/* Navigation buttons */
 .rbc-btn-group {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 5px !important;
+  @apply flex gap-2;
 }
 
 .rbc-btn-group button {
-  border: 1px solid #ccc !important;
-  background-color: white !important;
-  color: #333 !important;
-  border-radius: 4px !important;
-  padding: 6px 12px !important;
-  cursor: pointer !important;
-  margin: 0 !important;
-  outline: none !important;
-  transition: all 0.2s ease !important;
-  pointer-events: auto !important;
-  z-index: 1 !important;
-  position: relative !important;
+  @apply inline-flex items-center justify-center rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
 }
 
 .rbc-btn-group button:hover {
-  background-color: #f8f9fa !important;
+  @apply bg-slate-50 dark:bg-slate-700;
 }
 
 .rbc-btn-group button.rbc-active {
-  background-color: #007bff !important;
-  color: white !important;
-  border-color: #007bff !important;
+  @apply bg-blue-600 border-blue-600 text-white hover:bg-blue-700;
 }
 
-/* Style des événements */
-.rbc-event {
-  padding: 5px !important;
-  border-radius: 5px !important;
-  font-size: 14px !important;
-  cursor: pointer !important;
+/* Calendar container */
+.rbc-calendar {
+  @apply bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden;
 }
 
-.rbc-event:hover {
-  opacity: 0.85 !important;
+/* Calendar header */
+.rbc-header {
+  @apply bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-3 text-sm font-medium text-slate-900 dark:text-slate-100;
 }
 
-/* Style de la légende sous l'événement */
-.rbc-event-label {
-  font-size: 0.8em !important;
-}
-
-/* Style du header de l'agenda */
-.rbc-toolbar {
-  margin-bottom: 15px !important;
-  pointer-events: auto !important;
-  z-index: 10 !important;
-  position: relative !important;
-}
-
-.rbc-toolbar button {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.rbc-toolbar button:active,
-.rbc-toolbar button.rbc-active {
-  box-shadow: none !important;
-}
-
-/* Amélioration des cellules du calendrier */
+/* Calendar dates */
 .rbc-date-cell {
-  padding: 5px !important;
+  @apply p-2 text-sm text-slate-700 dark:text-slate-300;
+}
+
+.rbc-date-cell button {
+  @apply w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 rounded px-2 py-1 transition-colors;
+}
+
+.rbc-off-range {
+  @apply text-slate-400 dark:text-slate-600;
 }
 
 .rbc-today {
-  background-color: #e8f4ff !important;
+  @apply bg-blue-50 dark:bg-blue-900/20 font-medium;
 }
 
-/* Personnalisation des modales */
+/* Events */
+.rbc-event {
+  @apply rounded px-2 py-1 text-sm font-medium text-white cursor-pointer transition-all duration-200 hover:shadow-lg;
+}
+
+.rbc-event:hover {
+  @apply transform scale-105 shadow-md;
+}
+
+/* Time slots */
+.rbc-time-slot {
+  @apply border-slate-200 dark:border-slate-700;
+}
+
+.rbc-time-view {
+  @apply border-slate-200 dark:border-slate-700;
+}
+
+.rbc-time-header {
+  @apply border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800;
+}
+
+.rbc-time-content {
+  @apply border-slate-200 dark:border-slate-700;
+}
+
+.rbc-timeslot-group {
+  @apply border-b border-slate-200 dark:border-slate-700;
+}
+
+.rbc-time-gutter {
+  @apply bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700;
+}
+
+.rbc-day-slot {
+  @apply border-slate-200 dark:border-slate-700;
+}
+
+/* Month view */
+.rbc-month-view {
+  @apply border border-slate-200 dark:border-slate-700;
+}
+
+.rbc-month-row {
+  @apply border-b border-slate-200 dark:border-slate-700;
+}
+
+.rbc-day-bg {
+  @apply border-r border-slate-200 dark:border-slate-700;
+}
+
+.rbc-day-bg:hover {
+  @apply bg-slate-50 dark:bg-slate-800/50;
+}
+
+/* Agenda view */
+.rbc-agenda-view {
+  @apply border border-slate-200 dark:border-slate-700;
+}
+
+.rbc-agenda-table {
+  @apply w-full;
+}
+
+.rbc-agenda-table tbody > tr {
+  @apply border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50;
+}
+
+.rbc-agenda-table tbody > tr > td {
+  @apply p-3 text-sm text-slate-900 dark:text-slate-100;
+}
+
+/* Week view */
+.rbc-week-view {
+  @apply border border-slate-200 dark:border-slate-700;
+}
+
+/* Modal customization */
+.shift-details-modal .modal-content {
+  @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700;
+}
+
 .shift-details-modal .modal-header {
-  background-color: #f8f9fa;
+  @apply bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700;
 }
 
-.shift-details-modal .personnel-section {
-  margin-bottom: 20px;
+.shift-details-modal .modal-title {
+  @apply text-slate-900 dark:text-slate-100;
 }
 
-.shift-details-modal .personnel-header {
-  background-color: #f8f9fa;
-  padding: 10px;
-  margin-bottom: 15px;
+.shift-details-modal .modal-body {
+  @apply text-slate-900 dark:text-slate-100;
+}
+
+.shift-details-modal .table {
+  @apply border-slate-200 dark:border-slate-700;
+}
+
+.shift-details-modal .table th {
+  @apply bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700;
+}
+
+.shift-details-modal .table td {
+  @apply text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .rbc-toolbar {
+    @apply flex-col gap-3;
+  }
+  
+  .rbc-toolbar-label {
+    @apply text-base;
+  }
+  
+  .rbc-btn-group {
+    @apply flex-wrap justify-center;
+  }
 } 
