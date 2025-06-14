@@ -389,6 +389,105 @@ const getShiftSalaries = (req, res) => {
   );
 };
 
+// Mettre à jour manuellement les heures d'un user_shift (pour responsables/managers)
+const updateUserShiftHours = (req, res) => {
+  const { user_shift_id, clock_in, clock_out } = req.body;
+  
+  if (!user_shift_id || !clock_in || !clock_out) {
+    return res.status(400).json({ message: 'user_shift_id, clock_in et clock_out sont requis' });
+  }
+  
+  // Cette fonction sera appelée avec req.user défini par le middleware d'authentification
+  const modifierId = req.user?.id;
+  const modifierRole = req.user?.role;
+  
+  if (!modifierId || !modifierRole) {
+    return res.status(401).json({ message: 'Authentification requise' });
+  }
+  
+  // Vérifier si le modificateur est un responsable ou un manager
+  if (modifierRole !== 'responsable' && modifierRole !== 'manager') {
+    return res.status(403).json({ message: 'Seuls les responsables et les managers peuvent ajouter des heures manuellement' });
+  }
+  
+  // Vérifier si le user_shift existe
+  db.get(
+    `SELECT us.*, s.date, s.title 
+     FROM user_shifts us 
+     JOIN shifts s ON us.shift_id = s.id 
+     WHERE us.id = ?`, 
+    [user_shift_id], 
+    (err, userShift) => {
+      if (err) {
+        return res.status(500).json({ message: 'Erreur lors de la vérification du user_shift', error: err.message });
+      }
+      
+      if (!userShift) {
+        return res.status(404).json({ message: 'Affectation non trouvée' });
+      }
+      
+      // Si c'est un responsable, vérifier qu'il est présent sur ce shift
+      if (modifierRole === 'responsable') {
+        db.get(
+          'SELECT * FROM user_shifts WHERE user_id = ? AND shift_id = ?',
+          [modifierId, userShift.shift_id],
+          (err, responsableInShift) => {
+            if (err) {
+              return res.status(500).json({ message: 'Erreur lors de la vérification de la présence du responsable', error: err.message });
+            }
+            
+            if (!responsableInShift) {
+              return res.status(403).json({ message: 'Un responsable ne peut ajouter des heures que pour les shifts auxquels il participe' });
+            }
+            
+            // Procéder à la mise à jour
+            performUpdate();
+          }
+        );
+      } else {
+        // C'est un manager, il peut tout modifier
+        performUpdate();
+      }
+      
+      function performUpdate() {
+        // Mettre à jour les heures
+        db.run(
+          'UPDATE user_shifts SET clock_in = ?, clock_out = ?, validated = 0, validated_by = NULL, comment = NULL WHERE id = ?',
+          [clock_in, clock_out, user_shift_id],
+          function(err) {
+            if (err) {
+              return res.status(500).json({ message: 'Erreur lors de la mise à jour des heures', error: err.message });
+            }
+            
+            // Enregistrer dans l'audit
+            db.run(
+              `INSERT INTO hours_audit (user_shift_id, modified_by, action, old_clock_in, new_clock_in, old_clock_out, new_clock_out, old_validated, new_validated, reason)
+               VALUES (?, ?, 'MANUAL_HOURS', ?, ?, ?, ?, ?, 0, ?)`,
+              [
+                user_shift_id, 
+                modifierId, 
+                userShift.clock_in, 
+                clock_in,
+                userShift.clock_out, 
+                clock_out,
+                userShift.validated ? 1 : 0,
+                'Ajout manuel des heures de pointage'
+              ],
+              (auditErr) => {
+                if (auditErr) {
+                  console.error('Erreur lors de l\'enregistrement de l\'audit:', auditErr);
+                }
+              }
+            );
+            
+            res.json({ message: 'Heures ajoutées avec succès' });
+          }
+        );
+      }
+    }
+  );
+};
+
 module.exports = {
   clockIn,
   clockOut,
@@ -397,5 +496,6 @@ module.exports = {
   getAllHours,
   getResponsableShifts,
   updateHours,
+  updateUserShiftHours,
   getShiftSalaries
 }; 

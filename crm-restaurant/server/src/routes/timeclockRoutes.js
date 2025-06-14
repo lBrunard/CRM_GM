@@ -27,6 +27,13 @@ router.put('/update-hours',
   timeclockController.updateHours
 );
 
+// Route pour l'ajout manuel des heures
+router.put('/manual-hours',
+  authenticate,
+  authorize(['responsable', 'manager']),
+  timeclockController.updateUserShiftHours
+);
+
 // Route pour obtenir toutes les heures (managers seulement)
 router.get('/all-hours',
   authenticate,

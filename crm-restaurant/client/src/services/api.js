@@ -87,6 +87,7 @@ const timeclockService = {
   validateHours: (validationData) => api.post('/timeclock/validate', validationData),
   getUnvalidatedHours: () => api.get('/timeclock/unvalidated'),
   updateHours: (updateData) => api.put('/timeclock/update-hours', updateData),
+  updateUserShiftHours: (updateData) => api.put('/timeclock/manual-hours', updateData),
   getAllHours: () => api.get('/timeclock/all-hours'),
   getResponsableShifts: (userId) => api.get(`/timeclock/responsable-shifts/${userId}`),
   getShiftSalaries: (shiftId) => api.get(`/timeclock/shift-salaries/${shiftId}`)
@@ -102,10 +103,40 @@ const userService = {
   updateUserProfile: (id, profileData) => api.put(`/users/${id}/profile`, profileData)
 };
 
+// Services de disponibilité et remplacements
+const availabilityService = {
+  // Marquer comme non disponible
+  markUnavailable: (shiftId, reason) => api.post('/availability/unavailable', { shiftId, reason }),
+  
+  // Proposer de remplacer
+  proposeReplacement: (shiftId, originalUserId) => api.post('/availability/replace', { shiftId, originalUserId }),
+  
+  // Obtenir les shifts disponibles pour remplacement
+  getAvailableShifts: () => api.get('/availability/available-shifts'),
+  
+  // Obtenir les demandes de remplacement en attente (pour managers)
+  getPendingReplacements: () => api.get('/availability/pending-replacements'),
+  
+  // Obtenir l'historique des remplacements (pour managers)
+  getReplacementHistory: () => api.get('/availability/replacement-history'),
+  
+  // Approuver/rejeter un remplacement (pour managers)
+  approveReplacement: (replacementId, approved) => api.patch(`/availability/replacements/${replacementId}`, { approved }),
+  
+  // Annuler sa propre indisponibilité
+  cancelUnavailability: (shiftId) => api.delete(`/availability/unavailable/${shiftId}`),
+  
+  // Obtenir les indisponibilités de l'utilisateur courant
+  getUserUnavailabilities: () => api.get('/availability/my-unavailabilities'),
+  
+  deleteReplacementFromHistory: (replacementId) => api.delete(`/availability/replacement-history/${replacementId}`)
+};
+
 export {
   api,
   authService,
   shiftService,
   timeclockService,
-  userService
+  userService,
+  availabilityService
 }; 

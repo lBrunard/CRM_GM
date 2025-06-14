@@ -36,18 +36,41 @@ if [ ! -d "$CLIENT_DIR" ] || [ ! -d "$SERVER_DIR" ]; then
     exit 1
 fi
 
-# Vérifier les dépendances
+# Vérifier et installer les dépendances
 echo -e "${YELLOW}Vérification des dépendances...${NC}"
-if [ ! -d "$SERVER_DIR/node_modules" ]; then
-    echo -e "${RED}❌ Dépendances serveur manquantes.${NC}"
-    echo -e "${YELLOW}Exécutez: cd server && npm install${NC}"
-    exit 1
+
+# Vérifier et installer les dépendances du serveur
+if [ ! -d "$SERVER_DIR/node_modules" ] || [ ! -f "$SERVER_DIR/node_modules/.package-lock.json" ]; then
+    echo -e "${YELLOW}Installation des dépendances serveur...${NC}"
+    cd "$SERVER_DIR"
+    npm install
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Erreur lors de l'installation des dépendances serveur${NC}"
+        exit 1
+    fi
+    cd "$SCRIPT_PATH"
+    echo -e "${GREEN}✅ Dépendances serveur installées${NC}"
 fi
 
-if [ ! -d "$CLIENT_DIR/node_modules" ]; then
-    echo -e "${RED}❌ Dépendances client manquantes.${NC}"
-    echo -e "${YELLOW}Exécutez: cd client && npm install${NC}"
-    exit 1
+# Vérifier et installer les dépendances du client
+if [ ! -d "$CLIENT_DIR/node_modules" ] || [ ! -f "$CLIENT_DIR/node_modules/.package-lock.json" ]; then
+    echo -e "${YELLOW}Installation des dépendances client...${NC}"
+    cd "$CLIENT_DIR"
+    npm install
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Erreur lors de l'installation des dépendances client${NC}"
+        exit 1
+    fi
+    cd "$SCRIPT_PATH"
+    echo -e "${GREEN}✅ Dépendances client installées${NC}"
+fi
+
+# Vérifier que react-scripts est disponible
+if ! cd "$CLIENT_DIR" && npm list react-scripts &>/dev/null; then
+    echo -e "${RED}❌ react-scripts non trouvé, réinstallation...${NC}"
+    cd "$CLIENT_DIR"
+    npm install react-scripts@5.0.1
+    cd "$SCRIPT_PATH"
 fi
 
 # Fonction pour nettoyer et quitter
@@ -99,7 +122,9 @@ fi
 # Démarrer le serveur backend
 echo -e "${BLUE}Démarrage du serveur backend...${NC}"
 cd "$SERVER_DIR"
-npm run dev > ../server.log 2>&1 &
+
+# Démarrer le serveur avec les variables d'environnement spécifiques
+HOST=0.0.0.0 PORT=5050 npm run dev > ../server.log 2>&1 &
 SERVER_PID=$!
 cd "$SCRIPT_PATH"
 
@@ -121,21 +146,41 @@ done
 echo -e "${BLUE}Démarrage du client frontend...${NC}"
 cd "$CLIENT_DIR"
 
-# Définir les variables d'environnement pour éviter les problèmes
-export BROWSER=none
-export CI=false
+# Vérifier une dernière fois que react-scripts fonctionne
+if ! ./node_modules/.bin/react-scripts --version &>/dev/null; then
+    echo -e "${RED}❌ react-scripts ne fonctionne pas correctement${NC}"
+    echo -e "${YELLOW}💡 Essayez de supprimer node_modules et relancer: rm -rf node_modules && npm install${NC}"
+    exit 1
+fi
 
-npm start &
+# Démarrer le client avec les variables d'environnement spécifiques
+BROWSER=none CI=false SKIP_PREFLIGHT_CHECK=true HOST=0.0.0.0 npm start > ../client.log 2>&1 &
 CLIENT_PID=$!
 cd "$SCRIPT_PATH"
 
 echo -e "${GREEN}Client frontend démarré (PID: $CLIENT_PID)${NC}"
+
+# Attendre que le client soit prêt
+echo -e "${YELLOW}Attente du démarrage du client...${NC}"
+for i in {1..15}; do
+    if curl -s http://localhost:3000 > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Client prêt!${NC}"
+        break
+    fi
+    echo -e "${YELLOW}Attente... ($i/15)${NC}"
+    sleep 2
+done
+
 echo -e "${GREEN}URL du client: http://localhost:3000${NC}"
 
 echo
 echo -e "${GREEN}🎉 Application démarrée avec succès!${NC}"
 echo -e "${YELLOW}📱 Interface web: http://localhost:3000${NC}"
 echo -e "${YELLOW}🔧 API Backend: http://localhost:5050${NC}"
+echo
+echo -e "${YELLOW}📋 Logs disponibles:${NC}"
+echo -e "${YELLOW}   - Serveur: tail -f server.log${NC}"
+echo -e "${YELLOW}   - Client: tail -f client.log${NC}"
 echo
 echo -e "${RED}❌ Pour arrêter: Appuyez sur Ctrl+C${NC}"
 echo

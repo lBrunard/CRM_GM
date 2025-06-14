@@ -5,14 +5,12 @@ import {
   HomeIcon,
   CalendarIcon,
   CheckCircleIcon,
-  ClockIcon,
   UsersIcon
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
   CalendarIcon as CalendarIconSolid,
   CheckCircleIcon as CheckCircleIconSolid,
-  ClockIcon as ClockIconSolid,
   UsersIcon as UsersIconSolid
 } from '@heroicons/react/24/solid';
 
@@ -50,13 +48,6 @@ const BottomNavigation = () => {
       show: hasRole(['responsable', 'manager'])
     },
     {
-      path: '/shifts',
-      label: 'Shifts',
-      icon: ClockIcon,
-      iconSolid: ClockIconSolid,
-      show: hasRole(['manager'])
-    },
-    {
       path: '/personnel',
       label: 'Personnel',
       icon: UsersIcon,
@@ -67,7 +58,7 @@ const BottomNavigation = () => {
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-secondary-900 border-t border-secondary-200 dark:border-secondary-800 safe-area-bottom">
-      <div className="grid grid-cols-5 h-16">
+      <div className="grid grid-cols-4 h-16">
         {navigationItems.map((item) => {
           const active = isActive(item.path);
           const Icon = active ? item.iconSolid : item.icon;

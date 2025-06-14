@@ -363,7 +363,7 @@ const removeUserFromShift = (req, res) => {
   });
 };
 
-// Mettre à jour le personnel d'un shift
+// Mettre à jour le personnel d'un shift (NOUVELLE VERSION QUI PRÉSERVE LES HEURES)
 const updateShiftPersonnel = (req, res) => {
   const { shiftId } = req.params;
   const { personnel } = req.body; // { cuisine: [...], salle: [...], bar: [...] }
@@ -378,50 +378,112 @@ const updateShiftPersonnel = (req, res) => {
       return res.status(404).json({ message: 'Shift non trouvé' });
     }
     
-    db.serialize(() => {
-      db.run('BEGIN TRANSACTION');
+    // Récupérer les affectations actuelles
+    db.all('SELECT * FROM user_shifts WHERE shift_id = ?', [shiftId], (err, currentAssignments) => {
+      if (err) {
+        return res.status(500).json({ message: 'Erreur lors de la récupération des affectations actuelles', error: err.message });
+      }
       
-      // Supprimer toutes les affectations actuelles du shift
-      db.run('DELETE FROM user_shifts WHERE shift_id = ?', [shiftId], (err) => {
-        if (err) {
-          db.run('ROLLBACK');
-          return res.status(500).json({ message: 'Erreur lors de la suppression des affectations', error: err.message });
-        }
+      // Préparer la nouvelle liste du personnel
+      const newPersonnel = [
+        ...personnel.cuisine.map(user => ({ user_id: user.user_id, position: 'cuisine' })),
+        ...personnel.salle.map(user => ({ user_id: user.user_id, position: 'salle' })),
+        ...personnel.bar.map(user => ({ user_id: user.user_id, position: 'bar' }))
+      ];
+      
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
         
-        // Réassigner le nouveau personnel
-        let assignmentCount = 0;
-        const allPersonnel = [
-          ...personnel.cuisine.map(user => ({ ...user, position: 'cuisine' })),
-          ...personnel.salle.map(user => ({ ...user, position: 'salle' })),
-          ...personnel.bar.map(user => ({ ...user, position: 'bar' }))
-        ];
+        let operationsCompleted = 0;
+        let hasError = false;
         
-        if (allPersonnel.length === 0) {
-          // Pas de personnel à assigner, valider la transaction
+        // Calculer les opérations nécessaires
+        const currentUserIds = currentAssignments.map(a => a.user_id);
+        const newUserIds = newPersonnel.map(p => p.user_id);
+        
+        // Utilisateurs à supprimer (présents actuellement mais pas dans la nouvelle liste)
+        const usersToRemove = currentAssignments.filter(a => !newUserIds.includes(a.user_id));
+        
+        // Utilisateurs à ajouter (dans la nouvelle liste mais pas actuellement présents)
+        const usersToAdd = newPersonnel.filter(p => !currentUserIds.includes(p.user_id));
+        
+        // Utilisateurs à mettre à jour (présents dans les deux mais position différente)
+        const usersToUpdate = newPersonnel.filter(p => {
+          const current = currentAssignments.find(a => a.user_id === p.user_id);
+          return current && current.position !== p.position;
+        });
+        
+        const totalOperations = usersToRemove.length + usersToAdd.length + usersToUpdate.length;
+        
+        if (totalOperations === 0) {
+          // Aucun changement nécessaire
           db.run('COMMIT', () => {
-            res.json({ message: 'Personnel du shift mis à jour avec succès' });
+            res.json({ message: 'Personnel du shift mis à jour avec succès (aucun changement)' });
           });
           return;
         }
         
-        let hasError = false;
+        const completeOperation = () => {
+          operationsCompleted++;
+          if (operationsCompleted === totalOperations && !hasError) {
+            db.run('COMMIT', () => {
+              res.json({ message: 'Personnel du shift mis à jour avec succès' });
+            });
+          }
+        };
         
-        allPersonnel.forEach(person => {
+        const handleError = (error) => {
+          if (!hasError) {
+            hasError = true;
+            db.run('ROLLBACK');
+            res.status(500).json({ message: 'Erreur lors de la mise à jour', error: error.message });
+          }
+        };
+        
+        // Supprimer les utilisateurs qui ne sont plus assignés (PRÉSERVE LES HEURES si elles existent)
+        usersToRemove.forEach(assignment => {
+          // Vérifier si l'utilisateur a des heures pointées
+          if (assignment.clock_in || assignment.clock_out) {
+            // Ne pas supprimer, juste marquer comme "non assigné" ou laisser tel quel
+            console.log(`Utilisateur ${assignment.user_id} a des heures pointées, conservation de l'enregistrement`);
+            completeOperation();
+          } else {
+            // Supprimer seulement si pas d'heures pointées
+            db.run('DELETE FROM user_shifts WHERE id = ?', [assignment.id], (err) => {
+              if (err) {
+                handleError(err);
+              } else {
+                completeOperation();
+              }
+            });
+          }
+        });
+        
+        // Ajouter les nouveaux utilisateurs
+        usersToAdd.forEach(person => {
           db.run(
             'INSERT INTO user_shifts (user_id, shift_id, position) VALUES (?, ?, ?)',
             [person.user_id, shiftId, person.position],
             (err) => {
-              if (err && !hasError) {
-                hasError = true;
-                db.run('ROLLBACK');
-                return res.status(500).json({ message: 'Erreur lors de l\'assignation', error: err.message });
+              if (err) {
+                handleError(err);
+              } else {
+                completeOperation();
               }
-              
-              assignmentCount++;
-              if (assignmentCount === allPersonnel.length && !hasError) {
-                db.run('COMMIT', () => {
-                  res.json({ message: 'Personnel du shift mis à jour avec succès' });
-                });
+            }
+          );
+        });
+        
+        // Mettre à jour la position des utilisateurs existants
+        usersToUpdate.forEach(person => {
+          db.run(
+            'UPDATE user_shifts SET position = ? WHERE user_id = ? AND shift_id = ?',
+            [person.position, person.user_id, shiftId],
+            (err) => {
+              if (err) {
+                handleError(err);
+              } else {
+                completeOperation();
               }
             }
           );

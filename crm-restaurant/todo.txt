@@ -1,14 +1,4 @@
-Boutons calendrier :
-Salaires dashboard
+Je veux ajouter la possibilité pour le manager de ne voir que le sshifts de une personne en particulier dans le calendrier
 
-
-
-
-
-
-
-
-
-
-
+je veux qu'il n'y ai rien d'écris dans les events du calendrier
 

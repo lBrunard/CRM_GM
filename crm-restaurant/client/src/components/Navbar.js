@@ -13,15 +13,13 @@ import {
   HomeIcon,
   CalendarIcon,
   CheckCircleIcon,
-  UsersIcon,
-  ClockIcon
+  UsersIcon
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
   CalendarIcon as CalendarIconSolid,
   CheckCircleIcon as CheckCircleIconSolid,
   UsersIcon as UsersIconSolid,
-  ClockIcon as ClockIconSolid,
   UserIcon as UserIconSolid
 } from '@heroicons/react/24/solid';
 
@@ -64,12 +62,6 @@ const Navbar = () => {
       name: 'Personnel',
       href: '/personnel',
       icon: UsersIcon,
-      show: isAuthenticated && hasRole(['manager'])
-    },
-    {
-      name: 'Shifts',
-      href: '/shifts',
-      icon: ClockIcon,
       show: isAuthenticated && hasRole(['manager'])
     }
   ];
@@ -217,7 +209,6 @@ const Navbar = () => {
                    item.icon === CalendarIcon ? CalendarIconSolid :
                    item.icon === CheckCircleIcon ? CheckCircleIconSolid :
                    item.icon === UsersIcon ? UsersIconSolid :
-                   item.icon === ClockIcon ? ClockIconSolid :
                    item.icon) : item.icon;
                 
                 return (

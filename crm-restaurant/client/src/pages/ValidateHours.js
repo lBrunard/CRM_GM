@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { timeclockService } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ClockIcon, 
   CheckCircleIcon, 
@@ -17,6 +17,7 @@ import {
 const ValidateHours = () => {
   const { user, hasRole } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [hours, setHours] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,9 +27,62 @@ const ValidateHours = () => {
   const [showValidated, setShowValidated] = useState(false);
   const [collapsedDays, setCollapsedDays] = useState(new Set());
   
+  // Nouveau : sélecteur de semaine
+  const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
+  
   // États pour le modal d'édition
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [currentEditingHour, setCurrentEditingHour] = useState(null);
+
+  // Fonction pour obtenir la semaine actuelle
+  function getCurrentWeek() {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Lundi = début de semaine
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    
+    return {
+      start: startOfWeek.toISOString().split('T')[0],
+      end: endOfWeek.toISOString().split('T')[0]
+    };
+  }
+  
+  // Fonction pour obtenir les semaines disponibles (8 semaines : 4 passées + semaine actuelle + 3 futures)
+  function getAvailableWeeks() {
+    const weeks = [];
+    const today = new Date();
+    
+    for (let i = -4; i <= 3; i++) {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay() + 1 + (i * 7)); // Lundi de la semaine
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      const weekLabel = i === 0 ? 'Cette semaine' : 
+                      i === -1 ? 'Semaine passée' :
+                      i < 0 ? `Il y a ${Math.abs(i)} semaines` :
+                      i === 1 ? 'Semaine prochaine' :
+                      `Dans ${i} semaines`;
+      
+      weeks.push({
+        start: weekStart.toISOString().split('T')[0],
+        end: weekEnd.toISOString().split('T')[0],
+        label: weekLabel,
+        value: `${weekStart.toISOString().split('T')[0]}_${weekEnd.toISOString().split('T')[0]}`
+      });
+    }
+    
+    return weeks;
+  }
 
   // Vérifier que seuls les responsables et managers ont accès à cette page
   useEffect(() => {
@@ -36,7 +90,36 @@ const ValidateHours = () => {
       navigate('/unauthorized');
     }
     loadHours();
-  }, [hasRole, navigate, showValidated]);
+  }, [hasRole, navigate, showValidated, selectedWeek]);
+
+  // Vérifier les paramètres URL pour filtrage automatique
+  useEffect(() => {
+    const shiftId = searchParams.get('shift_id');
+    const date = searchParams.get('date');
+    
+    if (shiftId && date) {
+      // Calculer la semaine contenant cette date
+      const targetDate = new Date(date);
+      const startOfWeek = new Date(targetDate);
+      const day = startOfWeek.getDay();
+      const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Lundi = début de semaine
+      startOfWeek.setDate(diff);
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+      
+      setSelectedWeek({
+        start: startOfWeek.toISOString().split('T')[0],
+        end: endOfWeek.toISOString().split('T')[0]
+      });
+      
+      // Ouvrir automatiquement ce jour spécifique
+      const collapsedSet = new Set();
+      setCollapsedDays(collapsedSet); // Ne pas collabser les jours pour montrer le shift
+    }
+  }, [searchParams]);
 
   // Charger les heures selon le rôle et les filtres
   const loadHours = async () => {
@@ -65,7 +148,18 @@ const ValidateHours = () => {
         }
       }
       
-      setHours(response.data);
+      // Filtrer par semaine sélectionnée
+      const filteredHours = response.data.filter(hour => {
+        const hourDate = hour.date;
+        return hourDate >= selectedWeek.start && hourDate <= selectedWeek.end;
+      });
+      
+      setHours(filteredHours);
+      
+      // Mettre toutes les journées en mode diminué par défaut
+      const allDates = [...new Set(filteredHours.map(h => h.date))];
+      setCollapsedDays(new Set(allDates));
+      
     } catch (err) {
       console.error('Erreur lors du chargement des heures:', err);
       setError('Impossible de charger les heures');
@@ -285,10 +379,32 @@ const ValidateHours = () => {
       )}
       
       {/* Filtres */}
-      {user.role === 'manager' && (
-        <div className="card-hero">
-          <div className="card-hero-content">
-            <div className="flex items-center justify-center">
+      <div className="card-hero">
+        <div className="card-hero-content">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Sélecteur de semaine */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Semaine à afficher:
+              </label>
+              <select 
+                value={`${selectedWeek.start}_${selectedWeek.end}`}
+                onChange={(e) => {
+                  const [start, end] = e.target.value.split('_');
+                  setSelectedWeek({ start, end });
+                }}
+                className="input-hero"
+              >
+                {getAvailableWeeks().map(week => (
+                  <option key={week.value} value={week.value}>
+                    {week.label} ({new Date(week.start).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - {new Date(week.end).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Checkbox pour afficher les validées (managers seulement) */}
+            {user.role === 'manager' && (
               <label className="flex items-center gap-3 cursor-pointer">
                 <input 
                   type="checkbox" 
@@ -300,10 +416,10 @@ const ValidateHours = () => {
                   Afficher aussi les heures déjà validées
                 </span>
               </label>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
       
       {hours.length === 0 ? (
         <div className="card-hero">
@@ -460,107 +576,130 @@ const ValidateHours = () => {
                         </table>
                       </div>
 
-                      {/* Vue mobile optimisée */}
-                      <div className="lg:hidden space-y-4">
-                        {shiftGroup.hours.map(hour => (
-                          <div key={hour.id} className="mobile-card-hero">
-                            <div className="mobile-card-hero-header">
-                              <div className="flex items-center justify-between">
+                      {/* Vue mobile modernisée */}
+                      <div className="lg:hidden space-y-3">
+                        {shiftGroup.hours.map(hour => {
+                          const isToday = hour.date === new Date().toISOString().split('T')[0];
+                          const isTomorrow = hour.date === new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                          
+                          return (
+                            <div 
+                              key={hour.id} 
+                              className={`rounded-xl p-4 border-2 transition-all duration-200 ${
+                                isToday ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 dark:from-blue-900/20 dark:to-indigo-900/20 dark:border-blue-700' :
+                                'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              {/* Header avec indicateur visuel */}
+                              <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-3">
-                                  <UserIcon className="h-5 w-5 text-slate-400" />
-                                  <span className="font-semibold text-slate-900 dark:text-slate-100">{hour.username}</span>
+                                  <div className={`w-4 h-4 rounded-full ${isToday ? 'bg-blue-500' : isTomorrow ? 'bg-orange-400' : 'bg-slate-400'} ${isToday ? 'animate-pulse' : ''}`}></div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <UserIcon className="h-5 w-5 text-slate-400" />
+                                      <span className={`font-bold text-lg ${isToday ? 'text-blue-900 dark:text-blue-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                                        {hour.username}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className={`badge-hero ${
+                                
+                                {/* Statut avec design moderne */}
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                                   hour.validated 
                                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                    : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                                 }`}>
-                                  {hour.validated ? 'Validé' : 'En attente'}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="mobile-card-hero-body">
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="text-center">
-                                  <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium mb-2">
-                                    Pointages
-                                  </div>
-                                  <div className="text-sm font-mono text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 py-2 px-3 rounded-lg">
-                                    {formatTime(hour.clock_in)} - {formatTime(hour.clock_out)}
-                                  </div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium mb-2">
-                                    Durée
-                                  </div>
-                                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                                    {calculateDuration(hour.clock_in, hour.clock_out)}
-                                  </div>
-                                </div>
+                                  {hour.validated ? (
+                                    <>
+                                      <CheckCircleIcon className="h-4 w-4 mr-1" />
+                                      Validé
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ClockIcon className="h-4 w-4 mr-1" />
+                                      En attente
+                                    </>
+                                  )}
+                                </span>
                               </div>
 
-                              {/* Commentaire mobile */}
-                              <div className="mt-4">
-                                <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium mb-2">
-                                  Commentaire
+                              {/* Contenu principal avec design moderne */}
+                              <div className="space-y-3">
+                                {/* Informations de temps */}
+                                <div>
+                                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">⏰ Horaires de travail</div>
+                                  <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
+                                    <div className="text-center">
+                                      <div className="text-lg font-mono font-bold text-slate-900 dark:text-slate-100">
+                                        {formatTime(hour.clock_in)} - {formatTime(hour.clock_out)}
+                                      </div>
+                                      <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                        Durée: <span className="font-semibold text-blue-600 dark:text-blue-400">{calculateDuration(hour.clock_in, hour.clock_out)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <textarea 
-                                  className="input-hero text-sm resize-none w-full"
-                                  placeholder="Ajouter un commentaire de validation..."
-                                  value={comments[hour.id] || ''}
-                                  onChange={(e) => handleCommentChange(hour.id, e.target.value)}
-                                  rows="2"
-                                />
-                              </div>
-                            </div>
 
-                            {/* Actions mobile */}
-                            <div className="mobile-card-hero-actions">
-                              <div className="grid grid-cols-2 gap-3">
-                                <button
-                                  onClick={() => openEditModal(hour)}
-                                  className="btn-hero-secondary w-full"
-                                >
-                                  <PencilIcon className="h-4 w-4 mr-2" />
-                                  Modifier
-                                </button>
-                                {!hour.validated && (
+                                {/* Commentaire */}
+                                <div>
+                                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">💬 Commentaire de validation</div>
+                                  <textarea 
+                                    className="w-full p-3 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    placeholder="Ajouter un commentaire de validation..."
+                                    value={comments[hour.id] || ''}
+                                    onChange={(e) => handleCommentChange(hour.id, e.target.value)}
+                                    rows="2"
+                                  />
+                                </div>
+                                
+                                {/* Actions avec design moderne */}
+                                <div className="flex gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
                                   <button
-                                    onClick={() => handleValidate(hour.id)}
-                                    disabled={validationLoading}
-                                    className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center shadow-sm"
+                                    onClick={() => openEditModal(hour)}
+                                    className="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
                                   >
-                                    <CheckIcon className="h-4 w-4 mr-2" />
-                                    {validationLoading ? 'Validation...' : 'Valider'}
+                                    <PencilIcon className="h-4 w-4 mr-2" />
+                                    Modifier
                                   </button>
-                                )}
+                                  {!hour.validated && (
+                                    <button
+                                      onClick={() => handleValidate(hour.id)}
+                                      disabled={validationLoading}
+                                      className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center shadow-sm active:scale-95"
+                                    >
+                                      <CheckIcon className="h-4 w-4 mr-2" />
+                                      {validationLoading ? 'Validation...' : 'Valider'}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Actions groupées pour le shift avec design moderne */}
+                              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+                                  <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                                    📊 Progression: <span className="font-bold text-slate-900 dark:text-slate-100">{shiftGroup.hours.filter(h => h.validated).length} / {shiftGroup.hours.length}</span> validé{shiftGroup.hours.length > 1 ? 's' : ''}
+                                  </div>
+                                  {shiftGroup.hours.some(h => !h.validated) && (
+                                    <button 
+                                      onClick={() => {
+                                        shiftGroup.hours
+                                          .filter(h => !h.validated)
+                                          .forEach(h => handleValidate(h.id));
+                                      }}
+                                      disabled={validationLoading}
+                                      className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 active:scale-95"
+                                    >
+                                      <CheckCircleIcon className="h-4 w-4" />
+                                      Valider tout le shift
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Actions groupées pour le shift */}
-                      <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                            Progression: {shiftGroup.hours.filter(h => h.validated).length} / {shiftGroup.hours.length} validé{shiftGroup.hours.length > 1 ? 's' : ''}
-                          </span>
-                          {shiftGroup.hours.some(h => !h.validated) && (
-                            <button 
-                              onClick={() => {
-                                shiftGroup.hours
-                                  .filter(h => !h.validated)
-                                  .forEach(h => handleValidate(h.id));
-                              }}
-                              disabled={validationLoading}
-                              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors duration-200 shadow-sm"
-                            >
-                              Valider tout le shift
-                            </button>
-                          )}
-                        </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

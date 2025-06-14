@@ -171,17 +171,22 @@ const Login = () => {
             </h3>
             <div className="grid grid-cols-1 gap-2 text-xs">
               <div className="bg-slate-50 rounded-lg p-3">
-                <div className="font-medium text-slate-900">Manager</div>
-                <div className="text-slate-600">manager / password123</div>
+                <div className="font-medium text-slate-900">👑 Manager</div>
+                <div className="text-slate-600">Gilles / admin123</div>
               </div>
               <div className="bg-slate-50 rounded-lg p-3">
-                <div className="font-medium text-slate-900">Responsable</div>
-                <div className="text-slate-600">responsable / password123</div>
+                <div className="font-medium text-slate-900">🛡️ Responsable</div>
+                <div className="text-slate-600">Luis / admin123</div>
               </div>
               <div className="bg-slate-50 rounded-lg p-3">
-                <div className="font-medium text-slate-900">Personnel</div>
-                <div className="text-slate-600">personnel / password123</div>
+                <div className="font-medium text-slate-900">👤 Personnel</div>
+                <div className="text-slate-600">Raja / admin123</div>
               </div>
+            </div>
+            <div className="mt-3 text-center">
+              <p className="text-xs text-slate-500">
+                ℹ️ Tous les comptes utilisent le mot de passe : <span className="font-mono bg-slate-100 px-1 rounded">admin123</span>
+              </p>
             </div>
           </div>
         </div>

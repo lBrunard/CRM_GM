@@ -9,6 +9,7 @@ dotenv.config();
 const userRoutes = require('./routes/userRoutes');
 const shiftRoutes = require('./routes/shiftRoutes');
 const timeclockRoutes = require('./routes/timeclockRoutes');
+const availabilityRoutes = require('./routes/availabilityRoutes');
 
 const app = express();
 // Changer de port pour éviter le conflit avec AirTunes d'Apple (port 5000)
@@ -64,6 +65,7 @@ app.use((req, res, next) => {
 app.use('/api/users', userRoutes);
 app.use('/api/shifts', shiftRoutes);
 app.use('/api/timeclock', timeclockRoutes);
+app.use('/api/availability', availabilityRoutes);
 
 // Route de base
 app.get('/', (req, res) => {
