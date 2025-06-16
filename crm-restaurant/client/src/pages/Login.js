@@ -164,8 +164,23 @@ const Login = () => {
             </div>
           </form>
 
-          {/* Comptes de test */}
+          {/* Lien d'inscription */}
           <div className="mt-8 pt-6 border-t border-slate-200">
+            <div className="text-center">
+              <p className="text-sm text-slate-600">
+                Pas encore de compte ?{' '}
+                <button
+                  onClick={() => navigate('/register')}
+                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                >
+                  Créer un compte
+                </button>
+              </p>
+            </div>
+          </div>
+
+          {/* Comptes de test */}
+          <div className="mt-6 pt-6 border-t border-slate-200">
             <h3 className="text-sm font-medium text-slate-900 mb-4 text-center">
               Comptes de démonstration
             </h3>

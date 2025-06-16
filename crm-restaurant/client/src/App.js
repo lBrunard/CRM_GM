@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -17,6 +17,11 @@ import './styles/heroui.css'; // Hero UI styles only
 
 function AppContent() {
   const { isAuthenticated } = useContext(AuthContext);
+  const location = useLocation();
+
+  // Pages où on ne veut pas afficher la navbar
+  const noNavbarPages = ['/login', '/register'];
+  const shouldShowNavbar = !noNavbarPages.includes(location.pathname);
 
   // Ajouter/supprimer la classe CSS pour la navigation en bas
   useEffect(() => {
@@ -34,8 +39,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 dark-mode-transition">
-      <Navbar />
-      <main className="px-4 sm:px-6 lg:px-8">
+      {shouldShowNavbar && <Navbar />}
+      <main className={shouldShowNavbar ? "px-4 sm:px-6 lg:px-8" : ""}>
         <Routes>
           {/* Route d'accueil */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -130,7 +135,7 @@ function AppContent() {
           />
         </Routes>
       </main>
-      <BottomNavigation />
+      {shouldShowNavbar && <BottomNavigation />}
     </div>
   );
 }

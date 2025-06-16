@@ -6,13 +6,30 @@ const db = require('../config/db');
 const register = (req, res) => {
   console.log('Tentative d\'inscription avec données:', { ...req.body, password: '***' });
   
-  const { username, email, password, role } = req.body;
+  const { 
+    username, 
+    email, 
+    password, 
+    role, 
+    first_name, 
+    last_name, 
+    phone, 
+    national_number, 
+    address 
+  } = req.body;
   
-  if (!username || !email || !password || !role) {
-    return res.status(400).json({ message: 'Tous les champs sont requis' });
+  if (!username || !email || !password) {
+    return res.status(400).json({ message: 'Les champs nom d\'utilisateur, email et mot de passe sont requis' });
+  }
+
+  if (!first_name || !last_name || !phone || !national_number || !address) {
+    return res.status(400).json({ message: 'Tous les champs d\'informations personnelles sont requis' });
   }
   
-  if (!['personnel', 'responsable', 'manager'].includes(role)) {
+  // Si aucun rôle n'est fourni, on utilise "personnel" par défaut
+  const userRole = role || 'personnel';
+  
+  if (!['personnel', 'responsable', 'manager'].includes(userRole)) {
     return res.status(400).json({ message: 'Rôle invalide' });
   }
 
@@ -31,10 +48,13 @@ const register = (req, res) => {
       // Hachage du mot de passe
       const hashedPassword = await bcrypt.hash(password, 10);
       
-      // Insertion du nouvel utilisateur
+      // Insertion du nouvel utilisateur avec tous les champs
       db.run(
-        'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
-        [username, email, hashedPassword, role],
+        `INSERT INTO users (
+          username, email, password, role, first_name, last_name, 
+          phone, national_number, address
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [username, email, hashedPassword, userRole, first_name, last_name, phone, national_number, address],
         function(err) {
           if (err) {
             console.error('Erreur SQL lors de la création de l\'utilisateur:', err);

@@ -6,8 +6,4 @@ Pages pour donner les dispo
 
 essayer de faire le calendrier comme sur excel pour placer les gens
 
-refonte de la page de conection
-
-suprimer les navbar ecran de con top + bot
-
 ajouter niss sur le excel

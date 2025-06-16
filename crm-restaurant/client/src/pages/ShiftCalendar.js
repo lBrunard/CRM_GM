@@ -309,6 +309,7 @@ const ShiftCalendar = () => {
           NAME: person.username || person.first_name && person.last_name 
             ? `${person.first_name || ''} ${person.last_name || ''}`.trim() 
             : 'N/A',
+          NISS: person.niss || person.social_security_number || '',
           DATE: shift.date,
           IN: person.validated && person.clock_in ? person.clock_in : '',
           OUT: person.validated && person.clock_out ? person.clock_out : '',
@@ -353,6 +354,7 @@ const ShiftCalendar = () => {
       // Ajouter les en-têtes
       worksheet.columns = [
         { header: 'NAME', key: 'NAME', width: 25 },
+        { header: 'NISS', key: 'NISS', width: 15 },
         { header: 'DATE', key: 'DATE', width: 15 },
         { header: 'IN', key: 'IN', width: 12 },
         { header: 'OUT', key: 'OUT', width: 12 },
@@ -382,7 +384,7 @@ const ShiftCalendar = () => {
           };
           
           // Format de date
-          if (cell.col === 2 && rowNumber > 1) { // Colonne DATE
+          if (cell.col === 3 && rowNumber > 1) { // Colonne DATE (maintenant en position 3)
             cell.numFmt = 'dd/mm/yyyy';
           }
         });
