@@ -1,4 +1,13 @@
-Je veux ajouter la possibilité pour le manager de ne voir que le sshifts de une personne en particulier dans le calendrier
+Horaire perdro par exemple chaque mois la meme
 
-je veux qu'il n'y ai rien d'écris dans les events du calendrier
+ajouter le info perso pour le manager
 
+Pages pour donner les dispo
+
+essayer de faire le calendrier comme sur excel pour placer les gens
+
+refonte de la page de conection
+
+suprimer les navbar ecran de con top + bot
+
+ajouter niss sur le excel
