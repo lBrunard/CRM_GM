@@ -67,6 +67,7 @@ const authService = {
 // Services de gestion des shifts
 const shiftService = {
   getAllShifts: () => api.get('/shifts'),
+  getAllShiftsWithPersonnel: () => api.get('/shifts/with-personnel'),
   getShiftById: (id) => api.get(`/shifts/${id}`),
   createShift: (shiftData) => api.post('/shifts', shiftData),
   createMultipleShifts: (shiftsData) => api.post('/shifts/multiple', shiftsData),

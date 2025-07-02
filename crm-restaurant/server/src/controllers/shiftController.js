@@ -34,6 +34,143 @@ const getAllShifts = (req, res) => {
   });
 };
 
+// Récupérer tous les shifts avec leur personnel et horaires individuels
+const getAllShiftsWithPersonnel = (req, res) => {
+  // D'abord récupérer tous les shifts
+  db.all('SELECT * FROM shifts ORDER BY date ASC, start_time ASC', (err, shifts) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur lors de la récupération des shifts', error: err.message });
+    }
+    
+    if (shifts.length === 0) {
+      return res.json([]);
+    }
+    
+    // Puis récupérer le personnel pour chaque shift
+    let processedShifts = 0;
+    const shiftsWithPersonnel = [];
+    
+    shifts.forEach(shift => {
+      db.all(
+        `SELECT us.id as user_shift_id, us.position, us.individual_start_time, us.individual_end_time, us.role as user_role,
+         us.clock_in, us.clock_out, us.validated, us.is_responsable,
+         u.id as user_id, u.username, u.email, u.role
+         FROM user_shifts us
+         JOIN users u ON us.user_id = u.id
+         WHERE us.shift_id = ?
+         ORDER BY us.position`,
+        [shift.id],
+        (err, personnel) => {
+          if (err) {
+            console.error('Erreur lors de la récupération du personnel:', err);
+            personnel = [];
+          }
+          
+          // Organiser le personnel par position
+          const organizedPersonnel = {
+            cuisine: personnel.filter(p => p.position === 'cuisine').map(p => ({
+              user_id: p.user_id,
+              username: p.username,
+              email: p.email,
+              role: p.role,
+              user_role: p.user_role,
+              individual_start_time: p.individual_start_time,
+              individual_end_time: p.individual_end_time,
+              clock_in: p.clock_in,
+              clock_out: p.clock_out,
+              validated: p.validated,
+              is_responsable: p.is_responsable
+            })),
+            salle: personnel.filter(p => p.position === 'salle').map(p => ({
+              user_id: p.user_id,
+              username: p.username,
+              email: p.email,
+              role: p.role,
+              user_role: p.user_role,
+              individual_start_time: p.individual_start_time,
+              individual_end_time: p.individual_end_time,
+              clock_in: p.clock_in,
+              clock_out: p.clock_out,
+              validated: p.validated,
+              is_responsable: p.is_responsable
+            })),
+            bar: personnel.filter(p => p.position === 'bar').map(p => ({
+              user_id: p.user_id,
+              username: p.username,
+              email: p.email,
+              role: p.role,
+              user_role: p.user_role,
+              individual_start_time: p.individual_start_time,
+              individual_end_time: p.individual_end_time,
+              clock_in: p.clock_in,
+              clock_out: p.clock_out,
+              validated: p.validated,
+              is_responsable: p.is_responsable
+            })),
+            // Position "respo" supprimée - les responsables sont identifiés via is_responsable
+            chaud: personnel.filter(p => p.position === 'chaud').map(p => ({
+              user_id: p.user_id,
+              username: p.username,
+              email: p.email,
+              role: p.role,
+              user_role: p.user_role,
+              individual_start_time: p.individual_start_time,
+              individual_end_time: p.individual_end_time,
+              clock_in: p.clock_in,
+              clock_out: p.clock_out,
+              validated: p.validated,
+              is_responsable: p.is_responsable
+            })),
+            pain: personnel.filter(p => p.position === 'pain').map(p => ({
+              user_id: p.user_id,
+              username: p.username,
+              email: p.email,
+              role: p.role,
+              user_role: p.user_role,
+              individual_start_time: p.individual_start_time,
+              individual_end_time: p.individual_end_time,
+              clock_in: p.clock_in,
+              clock_out: p.clock_out,
+              validated: p.validated,
+              is_responsable: p.is_responsable
+            })),
+            envoi: personnel.filter(p => p.position === 'envoi').map(p => ({
+              user_id: p.user_id,
+              username: p.username,
+              email: p.email,
+              role: p.role,
+              user_role: p.user_role,
+              individual_start_time: p.individual_start_time,
+              individual_end_time: p.individual_end_time,
+              clock_in: p.clock_in,
+              clock_out: p.clock_out,
+              validated: p.validated,
+              is_responsable: p.is_responsable
+            }))
+          };
+          
+          shiftsWithPersonnel.push({
+            ...shift,
+            personnel: organizedPersonnel
+          });
+          
+          processedShifts++;
+          if (processedShifts === shifts.length) {
+            // Trier les shifts dans l'ordre original
+            const sortedShifts = shiftsWithPersonnel.sort((a, b) => {
+              if (a.date !== b.date) {
+                return a.date.localeCompare(b.date);
+              }
+              return a.start_time.localeCompare(b.start_time);
+            });
+            res.json(sortedShifts);
+          }
+        }
+      );
+    });
+  });
+};
+
 // Récupérer un shift par ID
 const getShiftById = (req, res) => {
   const { id } = req.params;
@@ -96,14 +233,14 @@ const deleteShift = (req, res) => {
 
 // Assigner un utilisateur à un shift
 const assignUserToShift = (req, res) => {
-  const { userId, shiftId, position } = req.body;
+  const { userId, shiftId, position, isResponsable } = req.body;
   
   if (!userId || !shiftId || !position) {
     return res.status(400).json({ message: 'Id utilisateur, Id shift et position sont requis' });
   }
 
-  if (!['cuisine', 'salle', 'bar'].includes(position)) {
-    return res.status(400).json({ message: 'La position doit être cuisine, salle ou bar' });
+  if (!['cuisine', 'salle', 'bar', 'chaud', 'pain', 'envoi'].includes(position)) {
+    return res.status(400).json({ message: 'La position doit être cuisine, salle, bar, chaud, pain ou envoi' });
   }
   
   // Vérifier si l'utilisateur existe
@@ -133,8 +270,8 @@ const assignUserToShift = (req, res) => {
           
           // Créer la nouvelle affectation
           db.run(
-            'INSERT INTO user_shifts (user_id, shift_id, position) VALUES (?, ?, ?)',
-            [userId, shiftId, position],
+            'INSERT INTO user_shifts (user_id, shift_id, position, is_responsable, individual_start_time, individual_end_time) VALUES (?, ?, ?, ?, ?, ?)',
+            [userId, shiftId, position, isResponsable ? 1 : 0, null, null],
             function(err) {
               if (err) {
                 return res.status(500).json({ message: 'Erreur lors de l\'affectation', error: err.message });
@@ -158,7 +295,7 @@ const getUserShifts = (req, res) => {
   
   db.all(
     `SELECT us.id as user_shift_id, us.clock_in, us.clock_out, us.validated, 
-      COALESCE(us.position, 'non-défini') as position,
+      COALESCE(us.position, 'non-défini') as position, us.individual_start_time, us.individual_end_time, us.role as user_role, us.is_responsable,
       s.id as shift_id, s.title, s.date, s.start_time, s.end_time
       FROM user_shifts us
       JOIN shifts s ON us.shift_id = s.id
@@ -178,6 +315,9 @@ const getUserShifts = (req, res) => {
 // Créer plusieurs shifts à la fois
 const createMultipleShifts = (req, res) => {
   const { shifts } = req.body;
+  
+  console.log('=== CREATE MULTIPLE SHIFTS ===');
+  console.log('Nombre de shifts reçus:', shifts?.length);
   
   if (!shifts || !Array.isArray(shifts) || shifts.length === 0) {
     return res.status(400).json({ message: 'Un tableau de shifts est requis' });
@@ -213,6 +353,12 @@ const createMultipleShifts = (req, res) => {
       const shift = shifts[index];
       const { title, date, start_time, end_time, assigned_users } = shift;
       
+      console.log(`\n--- Shift ${index + 1}: ${title} (${date}) ---`);
+      console.log('Personnel assigné:', assigned_users?.length || 0, 'personnes');
+      if (assigned_users?.length > 0) {
+        console.log('Positions:', assigned_users.map(u => `${u.userId}:${u.position}`));
+      }
+      
       if (!title || !date || !start_time || !end_time) {
         hasError = true;
         errorMessage = 'Tous les champs sont requis pour chaque shift';
@@ -241,37 +387,42 @@ const createMultipleShifts = (req, res) => {
             end_time
           });
           
-          // Si des utilisateurs sont assignés à ce shift
-          if (assigned_users && Array.isArray(assigned_users) && assigned_users.length > 0) {
-            let userAssignments = 0;
-            
-            // Assigner chaque utilisateur
-            assigned_users.forEach(assignment => {
-              const { userId, position } = assignment;
+                      // Si des utilisateurs sont assignés à ce shift
+            if (assigned_users && Array.isArray(assigned_users) && assigned_users.length > 0) {
+              let userAssignments = 0;
               
-              if (!userId || !position || !['cuisine', 'salle', 'bar'].includes(position)) {
-                processNextUserAssignment();
-                return;
-              }
-              
-              db.run(
-                'INSERT INTO user_shifts (user_id, shift_id, position) VALUES (?, ?, ?)',
-                [userId, shiftId, position],
-                (err) => {
-                  if (err) {
-                    console.error('Erreur lors de l\'assignation:', err);
-                  }
+              // Assigner chaque utilisateur
+              assigned_users.forEach(assignment => {
+                const { userId, position, individual_start_time, individual_end_time, role, isResponsable } = assignment;
+                
+                console.log(`  Assignation: userId=${userId}, position=${position}, role=${role}`);
+                
+                if (!userId || !position || !['cuisine', 'salle', 'bar', 'chaud', 'pain', 'envoi'].includes(position)) {
+                  console.log(`  ❌ REJETÉ: userId=${userId}, position=${position} (invalide)`);
                   processNextUserAssignment();
+                  return;
                 }
-              );
-              
-              function processNextUserAssignment() {
-                userAssignments++;
-                if (userAssignments === assigned_users.length) {
-                  processNextShift(index + 1);
+                
+                console.log(`  ✅ ACCEPTÉ: userId=${userId}, position=${position}`);
+                
+                db.run(
+                  'INSERT INTO user_shifts (user_id, shift_id, position, individual_start_time, individual_end_time, role, is_responsable) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                  [userId, shiftId, position, individual_start_time || null, individual_end_time || null, role || null, isResponsable ? 1 : 0],
+                  (err) => {
+                    if (err) {
+                      console.error('Erreur lors de l\'assignation:', err);
+                    }
+                    processNextUserAssignment();
+                  }
+                );
+                
+                function processNextUserAssignment() {
+                  userAssignments++;
+                  if (userAssignments === assigned_users.length) {
+                    processNextShift(index + 1);
+                  }
                 }
-              }
-            });
+              });
           } else {
             processNextShift(index + 1);
           }
@@ -289,7 +440,7 @@ const getShiftPersonnel = (req, res) => {
   const { shiftId } = req.params;
   
   db.all(
-    `SELECT us.id as user_shift_id, us.position, 
+    `SELECT us.id as user_shift_id, us.position, us.individual_start_time, us.individual_end_time, us.role as user_role,
       u.id as user_id, u.username, u.email, u.role
       FROM user_shifts us
       JOIN users u ON us.user_id = u.id
@@ -305,7 +456,11 @@ const getShiftPersonnel = (req, res) => {
       const result = {
         cuisine: personnel.filter(p => p.position === 'cuisine'),
         salle: personnel.filter(p => p.position === 'salle'),
-        bar: personnel.filter(p => p.position === 'bar')
+        bar: personnel.filter(p => p.position === 'bar'),
+        // Position "respo" supprimée
+        chaud: personnel.filter(p => p.position === 'chaud'),
+        pain: personnel.filter(p => p.position === 'pain'),
+        envoi: personnel.filter(p => p.position === 'envoi')
       };
       
       res.json(result);
@@ -318,7 +473,7 @@ const getShiftDetails = (req, res) => {
   const { shiftId } = req.params;
   
   db.all(
-    `SELECT us.id, us.user_id, us.clock_in, us.clock_out, us.validated, us.position,
+    `SELECT us.id, us.user_id, us.clock_in, us.clock_out, us.validated, us.position, us.individual_start_time, us.individual_end_time, us.role as user_role,
       u.username, u.email, u.role
       FROM user_shifts us
       JOIN users u ON us.user_id = u.id
@@ -386,9 +541,48 @@ const updateShiftPersonnel = (req, res) => {
       
       // Préparer la nouvelle liste du personnel
       const newPersonnel = [
-        ...personnel.cuisine.map(user => ({ user_id: user.user_id, position: 'cuisine' })),
-        ...personnel.salle.map(user => ({ user_id: user.user_id, position: 'salle' })),
-        ...personnel.bar.map(user => ({ user_id: user.user_id, position: 'bar' }))
+        ...(personnel.cuisine || []).map(user => ({ 
+          user_id: user.user_id, 
+          position: 'cuisine', 
+          is_responsable: user.is_responsable || false,
+          individual_start_time: user.individual_start_time || null,
+          individual_end_time: user.individual_end_time || null
+        })),
+        ...(personnel.salle || []).map(user => ({ 
+          user_id: user.user_id, 
+          position: 'salle', 
+          is_responsable: user.is_responsable || false,
+          individual_start_time: user.individual_start_time || null,
+          individual_end_time: user.individual_end_time || null
+        })),
+        ...(personnel.bar || []).map(user => ({ 
+          user_id: user.user_id, 
+          position: 'bar', 
+          is_responsable: user.is_responsable || false,
+          individual_start_time: user.individual_start_time || null,
+          individual_end_time: user.individual_end_time || null
+        })),
+        ...(personnel.chaud || []).map(user => ({ 
+          user_id: user.user_id, 
+          position: 'chaud', 
+          is_responsable: user.is_responsable || false,
+          individual_start_time: user.individual_start_time || null,
+          individual_end_time: user.individual_end_time || null
+        })),
+        ...(personnel.pain || []).map(user => ({ 
+          user_id: user.user_id, 
+          position: 'pain', 
+          is_responsable: user.is_responsable || false,
+          individual_start_time: user.individual_start_time || null,
+          individual_end_time: user.individual_end_time || null
+        })),
+        ...(personnel.envoi || []).map(user => ({ 
+          user_id: user.user_id, 
+          position: 'envoi', 
+          is_responsable: user.is_responsable || false,
+          individual_start_time: user.individual_start_time || null,
+          individual_end_time: user.individual_end_time || null
+        }))
       ];
       
       db.serialize(() => {
@@ -407,10 +601,15 @@ const updateShiftPersonnel = (req, res) => {
         // Utilisateurs à ajouter (dans la nouvelle liste mais pas actuellement présents)
         const usersToAdd = newPersonnel.filter(p => !currentUserIds.includes(p.user_id));
         
-        // Utilisateurs à mettre à jour (présents dans les deux mais position différente)
+        // Utilisateurs à mettre à jour (présents dans les deux mais position, statut responsable ou horaires différents)
         const usersToUpdate = newPersonnel.filter(p => {
           const current = currentAssignments.find(a => a.user_id === p.user_id);
-          return current && current.position !== p.position;
+          return current && (
+            current.position !== p.position || 
+            (current.is_responsable ? 1 : 0) !== (p.is_responsable ? 1 : 0) ||
+            current.individual_start_time !== p.individual_start_time ||
+            current.individual_end_time !== p.individual_end_time
+          );
         });
         
         const totalOperations = usersToRemove.length + usersToAdd.length + usersToUpdate.length;
@@ -462,8 +661,8 @@ const updateShiftPersonnel = (req, res) => {
         // Ajouter les nouveaux utilisateurs
         usersToAdd.forEach(person => {
           db.run(
-            'INSERT INTO user_shifts (user_id, shift_id, position) VALUES (?, ?, ?)',
-            [person.user_id, shiftId, person.position],
+            'INSERT INTO user_shifts (user_id, shift_id, position, is_responsable, individual_start_time, individual_end_time) VALUES (?, ?, ?, ?, ?, ?)',
+            [person.user_id, shiftId, person.position, person.is_responsable ? 1 : 0, person.individual_start_time, person.individual_end_time],
             (err) => {
               if (err) {
                 handleError(err);
@@ -474,11 +673,11 @@ const updateShiftPersonnel = (req, res) => {
           );
         });
         
-        // Mettre à jour la position des utilisateurs existants
+        // Mettre à jour la position, le statut responsable et les horaires des utilisateurs existants
         usersToUpdate.forEach(person => {
           db.run(
-            'UPDATE user_shifts SET position = ? WHERE user_id = ? AND shift_id = ?',
-            [person.position, person.user_id, shiftId],
+            'UPDATE user_shifts SET position = ?, is_responsable = ?, individual_start_time = ?, individual_end_time = ? WHERE user_id = ? AND shift_id = ?',
+            [person.position, person.is_responsable ? 1 : 0, person.individual_start_time, person.individual_end_time, person.user_id, shiftId],
             (err) => {
               if (err) {
                 handleError(err);
@@ -496,6 +695,7 @@ const updateShiftPersonnel = (req, res) => {
 module.exports = {
   createShift,
   getAllShifts,
+  getAllShiftsWithPersonnel,
   getShiftById,
   updateShift,
   deleteShift,

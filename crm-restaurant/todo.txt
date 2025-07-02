@@ -1,9 +1,27 @@
-Horaire perdro par exemple chaque mois la meme
+TODO :
+    Je ne peux plus demander de remplcements 12h avant le shift
+    pointeuse qui part juste a la fin du shift, je veux que tu puisse encore dépointer 5h apres puis cloture tout seul
 
-ajouter le info perso pour le manager
 
-Pages pour donner les dispo
+    supprimer des gens dans /personnel
 
-essayer de faire le calendrier comme sur excel pour placer les gens
+    ajouter l'ajout d'heure pour les gens ayant le role responsable sur le shift et les manager
+    ajouter la vision salaire en cliquant sur shift calendrier
+    modal ajout de personel contient les bons role
+    supprimer le checkbox respo dans créa planning
+    Impossible d'ajouter des gens dans le modal calendrier
 
-ajouter niss sur le excel
+    Quand je valide les heures ca ferme le dérouleur de la journée
+
+    ajouter niss sur le excel
+    Remettre le excel
+
+32
+Améliorations : 
+    Faire une facade pour les controller (ne pas com avec la db direct)
+
+
+
+Idées :
+    Pages pour donner les dispo
+    Ajouter un abonnement ics

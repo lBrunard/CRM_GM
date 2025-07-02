@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ShiftManager from './pages/ShiftManager';
+import WeeklyShiftGrid from './pages/WeeklyShiftGrid';
 import ValidateHours from './pages/ValidateHours';
 import ShiftCalendar from './pages/ShiftCalendar';
 import PersonnelManagement from './pages/PersonnelManagement';
@@ -64,6 +65,15 @@ function AppContent() {
             element={
               <ProtectedRoute allowedRoles={['manager']}>
                 <ShiftManager />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/weekly-grid" 
+            element={
+              <ProtectedRoute allowedRoles={['manager']}>
+                <WeeklyShiftGrid />
               </ProtectedRoute>
             } 
           />

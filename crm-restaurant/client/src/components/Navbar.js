@@ -53,6 +53,12 @@ const Navbar = () => {
       show: isAuthenticated
     },
     {
+      name: 'Planning Excel',
+      href: '/weekly-grid',
+      icon: Cog6ToothIcon,
+      show: isAuthenticated && hasRole(['manager'])
+    },
+    {
       name: 'Validation',
       href: '/validate',
       icon: CheckCircleIcon,

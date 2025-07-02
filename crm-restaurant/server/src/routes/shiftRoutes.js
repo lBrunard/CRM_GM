@@ -3,14 +3,17 @@ const router = express.Router();
 const shiftController = require('../controllers/shiftController');
 const { authenticate, authorize } = require('../middleware/auth');
 
+// Obtenir tous les shifts avec leur personnel et horaires individuels
+router.get('/with-personnel', authenticate, shiftController.getAllShiftsWithPersonnel);
+
+// Obtenir tous les shifts d'un utilisateur
+router.get('/user/:userId', authenticate, shiftController.getUserShifts);
+
 // Obtenir tous les shifts (tous les rôles authentifiés)
 router.get('/', authenticate, shiftController.getAllShifts);
 
 // Obtenir un shift par ID (tous les rôles authentifiés)
 router.get('/:id', authenticate, shiftController.getShiftById);
-
-// Obtenir tous les shifts d'un utilisateur
-router.get('/user/:userId', authenticate, shiftController.getUserShifts);
 
 // Obtenir le personnel d'un shift
 router.get('/:shiftId/personnel', authenticate, shiftController.getShiftPersonnel);

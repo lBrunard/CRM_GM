@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const { ALL_POSITIONS, validatePositions } = require('../constants/positions');
 
 // Enregistrement d'un nouvel utilisateur
 const register = (req, res) => {
@@ -145,7 +146,7 @@ const getAllUsers = (req, res) => {
   let params = [];
   
   // Si une position est spécifiée, filtrer les utilisateurs qui peuvent occuper cette position
-  if (position && ['cuisine', 'salle', 'bar'].includes(position)) {
+  if (position && ALL_POSITIONS.includes(position)) {
     query += ` WHERE positions LIKE ?`;
     params.push(`%"${position}"%`);
   }
@@ -229,7 +230,7 @@ const updateUser = (req, res) => {
   // Valider les positions si fournies
   let positionsJson = null;
   if (positions && Array.isArray(positions)) {
-    const validPositions = positions.filter(pos => ['cuisine', 'salle', 'bar'].includes(pos));
+    const validPositions = validatePositions(positions);
     positionsJson = JSON.stringify(validPositions);
   }
   
@@ -275,7 +276,7 @@ const updateUserProfile = (req, res) => {
   // Valider les positions si fournies
   let positionsJson = null;
   if (positions && Array.isArray(positions)) {
-    const validPositions = positions.filter(pos => ['cuisine', 'salle', 'bar'].includes(pos));
+    const validPositions = validatePositions(positions);
     positionsJson = JSON.stringify(validPositions);
   }
   

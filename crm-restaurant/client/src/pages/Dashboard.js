@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { shiftService, timeclockService, userService, availabilityService } from '../services/api';
 import { Link } from 'react-router-dom';
+import { getPositionConfig } from '../constants/positions';
 import { 
   ClockIcon, 
   CheckCircleIcon, 
@@ -21,6 +22,44 @@ import {
 
 const Dashboard = () => {
   const { user, hasRole } = useContext(AuthContext);
+
+  // Fonctions utilitaires pour l'affichage des positions
+  const getPositionLabel = (position) => {
+    const config = getPositionConfig(position);
+    const icons = {
+      'cuisine': '👨‍🍳',
+      'chaud': '🔥',
+      'pain': '🥖',
+      'envoi': '📤',
+      'salle': '🍽️',
+      'bar': '🍸'
+    };
+    return `${icons[position] || '👤'} ${config.label}`;
+  };
+
+  const getPositionColorClass = (position) => {
+    const colorMap = {
+      'cuisine': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      'chaud': 'bg-red-200 text-red-900 dark:bg-red-800 dark:text-red-100',
+      'pain': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      'envoi': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+      'salle': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      'bar': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+    };
+    return colorMap[position] || 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200';
+  };
+
+  const getPositionDotColor = (position) => {
+    const colorMap = {
+      'cuisine': 'bg-red-500',
+      'chaud': 'bg-red-600',
+      'pain': 'bg-orange-500',
+      'envoi': 'bg-purple-500',
+      'salle': 'bg-blue-500',
+      'bar': 'bg-green-500'
+    };
+    return colorMap[position] || 'bg-slate-500';
+  };
   const [pastShifts, setPastShifts] = useState([]);
   const [currentShift, setCurrentShift] = useState(null);
   const [activeClockingShift, setActiveClockingShift] = useState(null);
@@ -380,7 +419,10 @@ const Dashboard = () => {
               const allPersonnel = [
                 ...(personnelResponse.data?.cuisine || []),
                 ...(personnelResponse.data?.salle || []),
-                ...(personnelResponse.data?.bar || [])
+                ...(personnelResponse.data?.bar || []),
+                ...(personnelResponse.data?.chaud || []),
+                ...(personnelResponse.data?.pain || []),
+                ...(personnelResponse.data?.envoi || [])
               ].filter(person => person.user_id !== user.id); // Exclure l'utilisateur actuel
               
               colleaguesData[shift.shift_id] = allPersonnel;
@@ -594,16 +636,8 @@ const Dashboard = () => {
                           {activeClockingShift.title}
                         </h3>
                         <div className="flex items-center gap-3">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                            activeClockingShift.position === 'cuisine' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
-                            activeClockingShift.position === 'salle' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                            activeClockingShift.position === 'bar' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
-                            'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
-                          }`}>
-                            {activeClockingShift.position === 'cuisine' ? '👨‍🍳 Cuisine' :
-                             activeClockingShift.position === 'salle' ? '🍽️ Salle' : 
-                             activeClockingShift.position === 'bar' ? '🍸 Bar' : 
-                             'Non défini'}
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getPositionColorClass(activeClockingShift.position)}`}>
+                            {getPositionLabel(activeClockingShift.position)}
                           </span>
                           {activeClockingShift.clock_in && (
                             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
@@ -885,16 +919,8 @@ const Dashboard = () => {
                                   </div>
                                 </td>
                                 <td className="py-4 px-4">
-                                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                    shift.position === 'cuisine' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                    shift.position === 'salle' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                    shift.position === 'bar' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                    'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200'
-                                  }`}>
-                                    {shift.position === 'cuisine' ? '👨‍🍳 Cuisine' :
-                                     shift.position === 'salle' ? '🍽️ Salle' : 
-                                     shift.position === 'bar' ? '🍸 Bar' : 
-                                     '📋 Non défini'}
+                                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getPositionColorClass(shift.position)}`}>
+                                    {getPositionLabel(shift.position)}
                                   </span>
                                 </td>
                                 <td className="py-4 px-4">
@@ -1024,16 +1050,8 @@ const Dashboard = () => {
                               </div>
                               
                               {/* Position */}
-                              <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-bold ${
-                                shift.position === 'cuisine' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                shift.position === 'salle' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                shift.position === 'bar' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200'
-                              }`}>
-                                {shift.position === 'cuisine' ? '👨‍🍳 Cuisine' :
-                                 shift.position === 'salle' ? '🍽️ Salle' : 
-                                 shift.position === 'bar' ? '🍸 Bar' : 
-                                 '📋 Non défini'}
+                              <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-bold ${getPositionColorClass(shift.position)}`}>
+                                {getPositionLabel(shift.position)}
                               </span>
                             </div>
 
@@ -1199,16 +1217,8 @@ const Dashboard = () => {
                                   </div>
                                 </td>
                                 <td className="py-4 px-4">
-                                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                    shift.position === 'cuisine' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                    shift.position === 'salle' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                    shift.position === 'bar' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                    'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200'
-                                  }`}>
-                                    {shift.position === 'cuisine' ? '👨‍🍳 Cuisine' :
-                                     shift.position === 'salle' ? '🍽️ Salle' : 
-                                     shift.position === 'bar' ? '🍸 Bar' : 
-                                     '📋 Non défini'}
+                                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getPositionColorClass(shift.position)}`}>
+                                    {getPositionLabel(shift.position)}
                                   </span>
                                 </td>
                                 <td className="py-4 px-4">
@@ -1284,16 +1294,8 @@ const Dashboard = () => {
                               </div>
 
                               {/* Position */}
-                              <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-bold ${
-                                shift.position === 'cuisine' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                shift.position === 'salle' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                shift.position === 'bar' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200'
-                              }`}>
-                                {shift.position === 'cuisine' ? '👨‍🍳 Cuisine' :
-                                 shift.position === 'salle' ? '🍽️ Salle' : 
-                                 shift.position === 'bar' ? '🍸 Bar' : 
-                                 '📋 Non défini'}
+                              <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-bold ${getPositionColorClass(shift.position)}`}>
+                                {getPositionLabel(shift.position)}
                               </span>
                             </div>
 
@@ -1652,16 +1654,8 @@ const Dashboard = () => {
                 {/* Position */}
                 <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-xl">
                   <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Position</span>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${
-                    selectedShift.position === 'cuisine' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                    selectedShift.position === 'salle' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                    selectedShift.position === 'bar' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                    'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200'
-                  }`}>
-                    {selectedShift.position === 'cuisine' ? '👨‍🍳 Cuisine' :
-                     selectedShift.position === 'salle' ? '🍽️ Salle' : 
-                     selectedShift.position === 'bar' ? '🍸 Bar' : 
-                     '📋 Non défini'}
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${getPositionColorClass(selectedShift.position)}`}>
+                    {getPositionLabel(selectedShift.position)}
                   </span>
                 </div>
 
@@ -1696,6 +1690,9 @@ const Dashboard = () => {
                         <div key={colleague.user_id} className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 rounded-lg">
                           <span className={`w-3 h-3 rounded-full ${
                             colleague.position === 'cuisine' ? 'bg-red-500' :
+                            colleague.position === 'chaud' ? 'bg-red-600' :
+                            colleague.position === 'pain' ? 'bg-orange-500' :
+                            colleague.position === 'envoi' ? 'bg-purple-500' :
                             colleague.position === 'salle' ? 'bg-blue-500' :
                             colleague.position === 'bar' ? 'bg-green-500' :
                             'bg-slate-500'

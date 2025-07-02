@@ -3,6 +3,13 @@ import { AuthContext } from '../context/AuthContext';
 import { userService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
+  POSITION_CONFIGS, 
+  SERVICE_POSITIONS, 
+  CUISINE_POSITIONS, 
+  getPositionConfig,
+  getPositionColor
+} from '../constants/positions';
+import { 
   UserIcon,
   EnvelopeIcon,
   PhoneIcon,
@@ -356,12 +363,15 @@ const PersonnelManagement = () => {
                         <td className="border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm text-slate-700 dark:text-slate-300">{userData.phone || '-'}</td>
                         <td className="border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm text-slate-700 dark:text-slate-300">
                           {userData.positions && userData.positions.length > 0 ? (
-                            <div className="flex gap-1">
-                              {userData.positions.map(pos => (
-                                <span key={pos} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                  {pos === 'cuisine'} {pos === 'salle'} {pos === 'bar'} {pos}
-                                </span>
-                              ))}
+                            <div className="flex gap-1 flex-wrap">
+                              {userData.positions.map(pos => {
+                                const config = getPositionConfig(pos);
+                                return (
+                                  <span key={pos} className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+                                    {config.label}
+                                  </span>
+                                );
+                              })}
                             </div>
                           ) : '-'}
                         </td>
@@ -423,12 +433,15 @@ const PersonnelManagement = () => {
                       {userData.positions && userData.positions.length > 0 && (
                         <div className="flex justify-between">
                           <span className="text-slate-600 dark:text-slate-400">Positions:</span>
-                          <div className="flex gap-1">
-                            {userData.positions.map(pos => (
-                              <span key={pos} className="text-base">
-                                {pos === 'cuisine' && '🍳'} {pos === 'salle' && '🍽️'} {pos === 'bar' && '🍸'}
-                              </span>
-                            ))}
+                          <div className="flex gap-1 flex-wrap">
+                            {userData.positions.map(pos => {
+                              const config = getPositionConfig(pos);
+                              return (
+                                <span key={pos} className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium ${config.color}`} title={config.description}>
+                                  {config.label}
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -586,31 +599,67 @@ const PersonnelManagement = () => {
               {/* Positions - span across both columns */}
               <div className="md:col-span-2">
                 <label className="label-hero">Positions de travail</label>
-                <div className="mt-2 flex gap-4">
-                  {['cuisine', 'salle', 'bar'].map(position => (
-                    <label key={position} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="rounded mr-2"
-                        checked={editingUser.positions && editingUser.positions.includes(position)}
-                        onChange={(e) => {
-                          const currentPositions = editingUser.positions || [];
-                          let newPositions;
-                          
-                          if (e.target.checked) {
-                            newPositions = [...currentPositions, position];
-                          } else {
-                            newPositions = currentPositions.filter(p => p !== position);
-                          }
-                          
-                          setEditingUser({...editingUser, positions: newPositions});
-                        }}
-                      />
-                      <span className="capitalize">{position}</span>
-                    </label>
-                  ))}
-                </div>
                 
+                {/* Positions de salle */}
+                <div className="mt-3">
+                  <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">🍽️ Service</h4>
+                  <div className="flex gap-4">
+                    {SERVICE_POSITIONS.map(position => (
+                      <label key={position} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="rounded mr-2"
+                          checked={editingUser.positions && editingUser.positions.includes(position)}
+                          onChange={(e) => {
+                            const currentPositions = editingUser.positions || [];
+                            let newPositions;
+                            
+                            if (e.target.checked) {
+                              newPositions = [...currentPositions, position];
+                            } else {
+                              newPositions = currentPositions.filter(p => p !== position);
+                            }
+                            
+                            setEditingUser({...editingUser, positions: newPositions});
+                          }}
+                        />
+                        <span className="capitalize">
+                          {getPositionConfig(position).label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Positions de cuisine */}
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">👨‍🍳 Cuisine</h4>
+                  <div className="flex gap-4 flex-wrap">
+                    {CUISINE_POSITIONS.map(position => (
+                      <label key={position} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="rounded mr-2"
+                          checked={editingUser.positions && editingUser.positions.includes(position)}
+                          onChange={(e) => {
+                            const currentPositions = editingUser.positions || [];
+                            let newPositions;
+                            
+                            if (e.target.checked) {
+                              newPositions = [...currentPositions, position];
+                            } else {
+                              newPositions = currentPositions.filter(p => p !== position);
+                            }
+                            
+                            setEditingUser({...editingUser, positions: newPositions});
+                          }}
+                        />
+                        <span title={getPositionConfig(position).description}>{getPositionConfig(position).label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                </div>
               </div>
             </div>
           </Modal.Body>
@@ -638,16 +687,9 @@ const UserCard = ({ userData, onEdit }) => {
     }
   };
 
-  const getPositionIcons = (positions) => {
+  const getPositionLabels = (positions) => {
     if (!positions || positions.length === 0) return '';
-    return positions.map(pos => {
-      switch(pos) {
-        case 'cuisine': return '🍳';
-        case 'salle': return '🍽️';
-        case 'bar': return '🍸';
-        default: return '';
-      }
-    }).join(' ');
+    return positions.map(pos => getPositionConfig(pos).label).join(', ');
   };
 
   return (
@@ -677,8 +719,8 @@ const UserCard = ({ userData, onEdit }) => {
         {userData.hourly_rate && (
           <div>{userData.hourly_rate}€/h</div>
         )}
-        {getPositionIcons(userData.positions) && (
-          <div className="text-base">{getPositionIcons(userData.positions)}</div>
+        {getPositionLabels(userData.positions) && (
+          <div className="text-sm text-slate-600 dark:text-slate-400">{getPositionLabels(userData.positions)}</div>
         )}
       </div>
 
