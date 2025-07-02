@@ -12,8 +12,8 @@ const timeclockRoutes = require('./routes/timeclockRoutes');
 const availabilityRoutes = require('./routes/availabilityRoutes');
 
 const app = express();
-// Changer de port pour éviter le conflit avec AirTunes d'Apple (port 5000)
-const PORT = process.env.PORT || 5050; 
+
+const PORT = process.env.PORT || 5000; 
 
 // Middleware d'inspection des requêtes (doit être avant tout autre middleware)
 app.use((req, res, next) => {
@@ -87,10 +87,8 @@ app.use((err, req, res, next) => {
 });
 
 // Démarrer le serveur
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Serveur démarré sur le port ${PORT}`);
-  console.log(`Accessible localement sur: http://localhost:${PORT}`);
-  console.log(`Accessible sur le réseau sur: http://[VOTRE_IP]:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server runing on port ${PORT}`);
 });
 
 module.exports = app;

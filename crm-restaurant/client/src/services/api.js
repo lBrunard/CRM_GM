@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Créer une instance axios avec la configuration de base
 // Utilisation de chemins relatifs - le proxy dans package.json redirige vers le serveur
-const API_URL = '/api';
+const API_URL = "https://crm-restaurant-backend.onrender.com";
 
 const api = axios.create({
   baseURL: API_URL,
